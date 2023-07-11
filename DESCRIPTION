@@ -11,7 +11,7 @@ Description: Extends the 'hamstr' package (Hierarchical Accumulation Modelling
     exponential decomposition rate. In addition, peat mass fluxes net carbon 
     uptake (NCU) and net carbon release (NCR) as defined in Yu (2011) are 
     computed.
-License: GPL3 + file LICENSE
+License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.0
@@ -40,3 +40,6 @@ LinkingTo:
 SystemRequirements: GNU make
 URL: https://github.com/henningte/peathamstr
 BugReports: https://github.com/henningte/peathamstr/issues
+Suggests: 
+    spelling
+Language: en-US
