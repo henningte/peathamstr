@@ -1,0 +1,42 @@
+Package: peathamstr
+Title: Extension of the 'hamstr' package to model peat mass accumulation in the catotelm
+Version: 0.0.0.9000
+Authors@R: 
+    person("Henning", "Teickner", , "henning.teickner@wwu.de", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-3993-1182"))
+Description: Extends the 'hamstr' package (Hierarchical Accumulation Modelling 
+    with Stan and R) with a modified version of Clymo's Bog Growth Model. The 
+    extension uses 'hamstr' to compute an age-depth model, but also estimates
+    layer-specific peat addition rates to the catotelm (PAR) and a global 
+    exponential decomposition rate. In addition, peat mass fluxes net carbon 
+    uptake (NCU) and net carbon release (NCR) as defined in Yu (2011) are 
+    computed.
+License: GPL3 + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.0
+Biarch: true
+Depends: 
+    R (>= 3.4.0)
+Imports: 
+    dplyr,
+    hamstr (>= 0.7.2),
+    methods,
+    purrr,
+    Rcpp (>= 0.12.0),
+    RcppParallel (>= 5.0.1),
+    rlang,
+    rstan (>= 2.18.1),
+    rstantools (>= 2.2.0),
+    stats,
+    tibble
+LinkingTo: 
+    BH (>= 1.66.0),
+    Rcpp (>= 0.12.0),
+    RcppEigen (>= 0.3.3.3.0),
+    RcppParallel (>= 5.0.1),
+    rstan (>= 2.18.1),
+    StanHeaders (>= 2.18.0)
+SystemRequirements: GNU make
+URL: https://github.com/henningte/peathamstr
+BugReports: https://github.com/henningte/peathamstr/issues

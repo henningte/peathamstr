@@ -1,0 +1,257 @@
+---
+output: 
+  github_document
+bibliography: inst/REFERENCES.bib
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# peathamstr
+
+<!-- badges: start -->
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+<!-- badges: end -->
+
+'peathamstr' extents the ['hamstr'](https://github.com/EarthSystemDiagnostics/hamstr) package (Hierarchical Accumulation Modelling with Stan and R) [@Dolman.2023] with a modified version of Clymo's Bog Growth Model [@Clymo.1984]. 
+
+The extension uses 'hamstr' to compute an age-depth model, but also estimates layer-specific peat addition rates to the catotelm (PAR) and a global exponential decomposition rate. In addition, peat mass fluxes net carbon uptake (NCU) and net carbon release (NCR) as defined in @Yu.2011 are computed.
+
+This allows to estimate catotelm PAR and decomposition rates also for peat cores where the assumption of a constant PAR of Clymo's Bog Growth Model [@Clymo.1984] is violated, e.g. when PAR declined over time (see for example @Yu.2003).
+
+The package shamelessly recycles much of the code from the ['hamstr'](https://github.com/EarthSystemDiagnostics/hamstr) package and much credit goes to its developers. When using 'peathamstr', do not forget to also cite the 'hamstr' package!
+
+
+## Installation
+
+You can install the development version of 'peathamstr' like so:
+
+``` r
+remotes::install_github("henningte/peathamstr")
+```
+
+## Example
+
+This example shows how to estimate the decomposition rate, net carbon uptake (NCU) and net carbon release (NCR) for a peat core with non-constant peat addition rate (PAR).
+
+```{r example-1}
+library(peathamstr)
+library(pangaear) # to download example data
+library(ggplot2)
+```
+
+Download and reshape data [@Yu.2018; @Yu.2018a] from the Pangaea database:
+
+```{r example-2, cache=TRUE}
+d1 <- pangaear::pg_data(doi = '10.1594/PANGAEA.890357')
+d2 <- pangaear::pg_data(doi = '10.1594/PANGAEA.890392')
+
+d <- 
+  dplyr::full_join(
+    d1[[1]]$data |>
+      dplyr::select(1, 3, 6) |>
+      setNames(nm = c("depth_midpoint", "bulk_density", "C")) |>
+      dplyr::filter(!is.na(bulk_density)) |>
+      dplyr::mutate(
+        C = C/bulk_density,
+        depth_midpoint = round(depth_midpoint * 100, 1), # assumed
+        thickness = 1, # assumed
+        mass = bulk_density * thickness * 10000/1000,
+        cumulative_mass = c(0.00001, cumsum(mass)[-1])
+      ),
+    d2[[1]]$data |>
+      dplyr::select(2, 4, 5) |>
+      setNames(nm = c("depth_midpoint", "age", "age_sd")) |>
+      dplyr::filter(!is.na(age)) |>
+      dplyr::mutate(
+        depth_midpoint = round(depth_midpoint * 100, 1),
+        age = age * 1000,
+        age_sd = age_sd * 1000
+      ) |>
+      hamstr::calibrate_14C_age(age.14C = "age", age.14C.se = "age_sd") |>
+      dplyr::select(-age, -age_sd) |>
+      dplyr::rename(
+        age = "age.14C.cal",
+        age_sd = "age.14C.cal.se"
+      ),
+    by = "depth_midpoint"
+  ) |>
+  dplyr::arrange(depth_midpoint) |>
+  dplyr::filter(depth_midpoint <= max(depth_midpoint[!is.na(age)]) & depth_midpoint >= 44) |>
+  dplyr::mutate(
+    depth_upper = depth_midpoint - 0.5,
+    depth_lower = depth_midpoint + 0.5
+  )
+
+# subsample the data to make the example faster to compute
+set.seed(345345)
+index <- c(which(!is.na(d$age)), which(is.na(d$age)) |> sample(size = 150, replace = FALSE)) |> sort()
+
+d <- 
+  d |>
+  dplyr::slice(index) |>
+  dplyr::mutate(
+    depth_upper = c(depth_upper[[1]], depth_lower[-length(depth_lower)]) 
+  )
+```
+
+Show the cumulative mass-age curve (here using only point age values and cumulative masses for dated layers). It is clearly visible that the core violates the assumptions of the original Bog Growth Model (see also @Yu.2003 for a detailed description of the peatland).
+
+```{r example-3, out.width="60%", fig.height=3.5, fig.width=3.5}
+d |>
+  dplyr::filter(!is.na(age)) |>
+  ggplot(aes(y = cumsum(mass * C), x = age)) +
+  geom_path() +
+  geom_point() +
+  labs(y = expression("Cumulative carbon mass (kg m"^{-2}*")"), x = "age (yr BP)")
+```
+
+
+Estimate the posterior distribution (computes the age-depth model and fits the modified Clymo model with PAR varying over time).
+
+```{r example-4, cache=TRUE}
+fit_1 <- 
+  peat_hamstr(
+    depth = 
+      d |> 
+      dplyr::filter(!is.na(age)) |> 
+      dplyr::pull(depth_midpoint),
+    obs_age =
+      d |> 
+      dplyr::filter(!is.na(age)) |> 
+      dplyr::pull(age),
+    obs_err = 
+      d |> 
+      dplyr::filter(!is.na(age)) |> 
+      dplyr::pull(age_sd),
+    cumulative_mass = 
+      d |> 
+      dplyr::filter(!is.na(cumulative_mass)) |> 
+      dplyr::slice(-1) |> 
+      dplyr::pull(cumulative_mass),
+    cumulative_mass0 = d$cumulative_mass[[1]],
+    depth2 =
+      d |> 
+      dplyr::filter(!is.na(cumulative_mass)) |> 
+      dplyr::slice(-1) |> 
+      dplyr::pull(depth_midpoint),
+    depth2_upper =
+      d |> 
+      dplyr::filter(!is.na(cumulative_mass)) |> 
+      dplyr::slice(-1) |> 
+      dplyr::pull(depth_upper),
+    depth2_lower =
+      d |> 
+      dplyr::filter(!is.na(cumulative_mass)) |> 
+      dplyr::slice(-1) |> 
+      dplyr::pull(depth_lower),
+    min_age = 0,
+    # the seed argument for the sampler is set here so that
+    # this example always returns the same numerical result
+    stan_sampler_args = 
+      list(
+        seed = 34564, 
+        chains = 4, 
+        iter = 4000, 
+        cores = 4, 
+        control = list(max_treedepth = 12)
+      )
+  )
+```
+
+
+Show the age-depth model (this is the same function as in the original 'hamstr' package):
+
+```{r example-5, out.width="100%"}
+plot(fit_1, type = "default")
+```
+
+
+Show estimated and measured cumulative masses versus depth:
+
+```{r example-6, out.width="60%", fig.align='center'}
+# plot(fit_1, type = "cumulative_mass_profile")
+plot(
+  fit_1, 
+  type = "cumulative_carbon_mass_profile", 
+  carbon_content = 
+    d |> 
+    dplyr::filter(!is.na(cumulative_mass)) |> 
+    dplyr::slice(-1) |> 
+    dplyr::pull(C)
+)
+```
+
+
+Plot a histogram of the estimate exponential decomposition rate:
+
+```{r example-7, out.width="60%", fig.align='center'}
+as.data.frame(fit_1$fit, pars = "clymo_alpha") |>
+  ggplot(aes(x = clymo_alpha)) +
+  geom_histogram(bins = 30) +
+  labs(y = "Count", x = expression(alpha~"("*yr^{-1}*")"))
+```
+
+
+Plot net carbon uptake (NCU) and net carbon release (NCR). Gaps in default plots are due to incomplete coverage of modeled depth layers by measured depth layers:
+
+```{r example-8, out.width="100%", fig.align='center'}
+p1 <- 
+  plot(
+  fit_1, 
+  type = "carbon_fluxes", 
+  carbon_content = 
+    d |> 
+    dplyr::filter(!is.na(cumulative_mass)) |> 
+    dplyr::slice(-1) |> 
+    dplyr::pull(C)
+)
+
+p1
+```
+
+
+To add apparent carbon accumulation rates (aCAR), you can add: 
+
+```{r example-9, out.width="100%", fig.align='center'}
+d_acar <- 
+  predict(
+        object = fit_1, 
+        type = "apparent_carbon_accumulation_rates", 
+        depth = "data", 
+        carbon_content = d |> 
+          dplyr::filter(!is.na(cumulative_mass)) |> 
+          dplyr::slice(-1) |> 
+          dplyr::pull(C)
+      ) |>
+  dplyr::group_by(depth_lower) |>
+  dplyr::summarise(
+    mean = mean(acar, na.rm = TRUE),
+    `2.5%` = quantile(acar, probs = 0.025, na.rm = TRUE),
+    `97.5%` = quantile(acar, probs = 0.975, na.rm = TRUE),
+    age = mean(age_lower, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+p1 +
+  geom_ribbon(data = d_acar, aes(x = age, ymin = `2.5%`, ymax = `97.5%`), color = NA, fill = "grey", alpha = 0.3) +
+  geom_path(data = d_acar, aes(x = age, y = mean))
+```
+
+
+Plot for net mass uptake (NMU) and net mass release (NMR) can also be created:
+
+```{r example-10, out.width="100%", fig.align='center'}
+plot(fit_1, type = "mass_fluxes")
+```
+
+
+# References
