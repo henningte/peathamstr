@@ -203,7 +203,7 @@ as.data.frame(fit_1$fit, pars = "clymo_alpha") |>
 
 Plot net carbon uptake (NCU) and net carbon release (NCR). Gaps in default plots are due to incomplete coverage of modeled depth layers by measured depth layers:
 
-```{r example-8, out.width="100%", fig.align='center'}
+```{r example-8, out.width="60%", fig.align='center', fig.width=4.5, fig.height=7.5}
 p1 <- 
   plot(
   fit_1, 
@@ -213,7 +213,8 @@ p1 <-
     dplyr::filter(!is.na(cumulative_mass)) |> 
     dplyr::slice(-1) |> 
     dplyr::pull(C)
-)
+) + 
+  facet_wrap(~ variable, ncol = 1L)
 
 p1
 ```
@@ -221,7 +222,7 @@ p1
 
 To add apparent carbon accumulation rates (aCAR), you can add: 
 
-```{r example-9, out.width="100%", fig.align='center'}
+```{r example-9, out.width="60%", fig.align='center', fig.width=4.5, fig.height=7.5}
 d_acar <- 
   predict(
         object = fit_1, 
@@ -242,15 +243,20 @@ d_acar <-
   )
 
 p1 +
-  geom_ribbon(data = d_acar, aes(x = age, ymin = `2.5%`, ymax = `97.5%`), color = NA, fill = "grey", alpha = 0.3) +
+  geom_ribbon(
+    data = d_acar, 
+    aes(x = age, ymin = `2.5%`, ymax = `97.5%`), 
+    color = NA, fill = "grey", alpha = 0.3
+  ) +
   geom_path(data = d_acar, aes(x = age, y = mean))
 ```
 
 
 Plot for net mass uptake (NMU) and net mass release (NMR) can also be created:
 
-```{r example-10, out.width="100%", fig.align='center'}
-plot(fit_1, type = "mass_fluxes")
+```{r example-10, out.width="60%", fig.align='center', fig.width=4.5, fig.height=7.5}
+plot(fit_1, type = "mass_fluxes") + 
+  facet_wrap(~ variable, ncol = 1L)
 ```
 
 

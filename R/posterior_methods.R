@@ -5,7 +5,7 @@
 #' Either returns
 #' posterior ages at specified depths, posterior age accumulation rates
 #' (yr cm\eqn{^{-1}}) at the depths the model was constructed on, or posterior
-#' mass fluxes (kg yr\eqn{^{-1}}} m\eqn{^{-2}}}) at the depths the model was
+#' mass fluxes (kg yr\eqn{^{-1}} m\eqn{^{-2}}) at the depths the model was
 #' constructed on.
 #'
 #' @param object An object of class `peathamstr_fit`.
@@ -16,10 +16,10 @@
 #'   \item{`"age_models"`}{Predicts posterior ages at specified depths.}
 #'   \item{`"acc_rates"`}{Predicts posterior age accumulation rates
 #'      (yr cm\eqn{^{-1}}) at the depths the model was constructed on}
-#'   \item{`"mass_fluxes"`}{Predicts posterior mass fluxes (kg yr\eqn{^{-1}}}
-#'      m\eqn{^{-2}}}) at the depths the model was constructed on.}
+#'   \item{`"mass_fluxes"`}{Predicts posterior mass fluxes (kg yr\eqn{^{-1}}
+#'      m\eqn{^{-2}}) at the depths the model was constructed on.}
 #'   \item{`"carbon_fluxes"`}{Predicts posterior carbon mass fluxes
-#'     (kg yr\eqn{^{-1}}} m\eqn{^{-2}}}) at the depths the model was constructed
+#'     (kg yr\eqn{^{-1}} m\eqn{^{-2}}) at the depths the model was constructed
 #'     on. For this, argument `carbon_content` needs to be specified.}
 #' }
 #'
@@ -91,7 +91,7 @@ predict.peathamstr_fit <- function(
           d_increments <-
             res_mass_fluxes |>
             dplyr::select(dplyr::all_of(c("c_depth_top", "c_depth_bottom"))) |>
-            dplyr::filter(!duplicated(.data$c_depth_top)) |>
+            dplyr::filter(! duplicated(.data$c_depth_top)) |>
             dplyr::mutate(
               thickness = .data$c_depth_bottom - .data$c_depth_top
             )
@@ -120,15 +120,16 @@ predict.peathamstr_fit <- function(
             dplyr::left_join(
               res,
               d_increments |>
-                dplyr::select(!dplyr::any_of(c("thickness", "c_depth_bottom"))),
+                dplyr::select(! dplyr::all_of(c("thickness", "c_depth_bottom"))),
               by = "c_depth_top"
             ) |>
             dplyr::mutate(
-              dplyr::across(dplyr::any_of(c("nmu", "nmr")), function(.x) .x * .data$C)
+              dplyr::across(dplyr::all_of(c("nmu", "nmr", "nmb")), function(.x) .x * .data$C)
             ) |>
             dplyr::rename(
               ncu = "nmu",
-              ncr = "nmr"
+              ncr = "nmr",
+              ncb = "nmb"
             )
 
         }
@@ -315,12 +316,13 @@ get_posterior_mass_fluxes <- function(object, res_age) {
       dplyr::select(nmr)
   ) |>
     dplyr::mutate(
+      nmb = nmu + nmr, #---note: net mass balance ---todo: check sign here: NCB should be smaller than NCU, hence in the formula in @Yu.2011, we have to assume NCR to have positive values
       idx = get_par_idx(.data$par),
       par = "nmu"
     ) |>
     dplyr::right_join(depths, by = "idx") |>
     dplyr::arrange("par", "iter", "idx", "depth") |>
-    dplyr::select("iter", "idx", "depth", "c_depth_top", "c_depth_bottom", "nmu", "nmr")
+    dplyr::select("iter", "idx", "depth", "c_depth_top", "c_depth_bottom", "nmu", "nmr", "nmb")
 
 }
 
@@ -509,7 +511,7 @@ summarise_hamstr_carbon_fluxes <- function(
   res <-
     stats::predict(object, type = "carbon_fluxes", carbon_content = carbon_content, depth = "modelled") |>
     tidyr::pivot_longer(
-      cols = dplyr::all_of(c("ncu", "ncr")),
+      cols = dplyr::all_of(c("ncu", "ncr", "ncb")),
       names_to = "variable"
     ) |>
     dplyr::group_by(.data$variable, .data$depth, .data$c_depth_top, .data$c_depth_bottom, .data$idx)
@@ -538,7 +540,7 @@ summarise_hamstr_mass_fluxes <- function(
   res <-
     stats::predict(object, type = "mass_fluxes", depth = "modelled") |>
     tidyr::pivot_longer(
-      cols = dplyr::all_of(c("nmu", "nmr")),
+      cols = dplyr::all_of(c("nmu", "nmr", "nmb")),
       names_to = "variable"
     ) |>
     dplyr::group_by(.data$variable, .data$depth, .data$c_depth_top, .data$c_depth_bottom, .data$idx)

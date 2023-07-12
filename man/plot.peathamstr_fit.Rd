@@ -18,6 +18,24 @@
 \arguments{
 \item{x}{An object of class \code{peathamstr_fit}.}
 
+\item{type}{A character value. Must be one of the plot \code{type}s available for
+\code{hamstr_fit} objects (see \code{hamstr::plot.hamstr_fit()}) or the additional types
+provided by the 'peathamstr' package:
+\describe{
+\item{\code{"cumulative_mass_profile"}}{Plots the modeled and measured
+cumulative masses versus depth.}
+\item{\code{"cumulative_carbon_mass_profile"}}{Plots the modeled and measured
+cumulative carbon masses versus depth. If the modeled core does not start
+at 0 cm depth, this will set the start cumulative carbon mass to 0 kg
+m\eqn{^{-1}}.}
+\item{\code{"mass_fluxes"}}{Plots the modeled and measured
+net mass uptake (NMU) and net mass release (NMR) versus average estimated
+ages. Shaded areas are 50\\% and 95\\% posterior intervals.}
+\item{\code{"carbon_fluxes"}}{Plots the modeled and measured
+net carbon uptake (NCU) and net carbon release (NCR) versus average estimated
+ages. Shaded areas are 50\\% and 95\\% posterior intervals.}
+}}
+
 \item{summarise}{See \code{hamstr::plot.hamstr_fit()}.}
 
 \item{...}{Additional paramters (currently ignored).}

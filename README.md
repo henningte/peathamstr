@@ -354,12 +354,13 @@ p1 <-
     dplyr::filter(!is.na(cumulative_mass)) |> 
     dplyr::slice(-1) |> 
     dplyr::pull(C)
-)
+) + 
+  facet_wrap(~ variable, ncol = 1L)
 
 p1
 ```
 
-<img src="man/figures/README-example-8-1.png" width="100%" style="display: block; margin: auto;" />
+<img src="man/figures/README-example-8-1.png" width="60%" style="display: block; margin: auto;" />
 
 To add apparent carbon accumulation rates (aCAR), you can add:
 
@@ -384,21 +385,26 @@ d_acar <-
   )
 
 p1 +
-  geom_ribbon(data = d_acar, aes(x = age, ymin = `2.5%`, ymax = `97.5%`), color = NA, fill = "grey", alpha = 0.3) +
+  geom_ribbon(
+    data = d_acar, 
+    aes(x = age, ymin = `2.5%`, ymax = `97.5%`), 
+    color = NA, fill = "grey", alpha = 0.3
+  ) +
   geom_path(data = d_acar, aes(x = age, y = mean))
 #> Warning: Removed 1 row(s) containing missing values (geom_path).
 ```
 
-<img src="man/figures/README-example-9-1.png" width="100%" style="display: block; margin: auto;" />
+<img src="man/figures/README-example-9-1.png" width="60%" style="display: block; margin: auto;" />
 
 Plot for net mass uptake (NMU) and net mass release (NMR) can also be
 created:
 
 ``` r
-plot(fit_1, type = "mass_fluxes")
+plot(fit_1, type = "mass_fluxes") + 
+  facet_wrap(~ variable, ncol = 1L)
 ```
 
-<img src="man/figures/README-example-10-1.png" width="100%" style="display: block; margin: auto;" />
+<img src="man/figures/README-example-10-1.png" width="60%" style="display: block; margin: auto;" />
 
 # References
 

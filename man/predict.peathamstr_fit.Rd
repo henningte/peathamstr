@@ -17,6 +17,19 @@
 \arguments{
 \item{object}{An object of class \code{peathamstr_fit}.}
 
+\item{type}{A character value defining what posterior variables are predicted.
+One of:
+\describe{
+\item{\code{"age_models"}}{Predicts posterior ages at specified depths.}
+\item{\code{"acc_rates"}}{Predicts posterior age accumulation rates
+(yr cm\eqn{^{-1}}) at the depths the model was constructed on}
+\item{\code{"mass_fluxes"}}{Predicts posterior mass fluxes (kg yr\eqn{^{-1}}
+m\eqn{^{-2}}) at the depths the model was constructed on.}
+\item{\code{"carbon_fluxes"}}{Predicts posterior carbon mass fluxes
+(kg yr\eqn{^{-1}} m\eqn{^{-2}}) at the depths the model was constructed
+on. For this, argument \code{carbon_content} needs to be specified.}
+}}
+
 \item{depth}{A character value defining depth values for which predictions are
 computed. Must be one of:
 \describe{
@@ -40,5 +53,9 @@ carbon fluxes.}
 A \code{tibble} of \code{peathamstr_fit} age-depth model realizations.
 }
 \description{
-
+Either returns
+posterior ages at specified depths, posterior age accumulation rates
+(yr cm\eqn{^{-1}}) at the depths the model was constructed on, or posterior
+mass fluxes (kg yr\eqn{^{-1}} m\eqn{^{-2}}) at the depths the model was
+constructed on.
 }

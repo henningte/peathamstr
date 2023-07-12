@@ -308,10 +308,10 @@ peat_make_stan_dat_hamstr <- function (...)
 #'    m\eqn{^{-1}}.}
 #'   \item{`"mass_fluxes"`}{Plots the modeled and measured
 #'    net mass uptake (NMU) and net mass release (NMR) versus average estimated
-#'    ages. Shaded areas are 50% and 95% posterior intervals.}
+#'    ages. Shaded areas are 50\% and 95\% posterior intervals.}
 #'   \item{`"carbon_fluxes"`}{Plots the modeled and measured
 #'    net carbon uptake (NCU) and net carbon release (NCR) versus average estimated
-#'    ages. Shaded areas are 50% and 95% posterior intervals.}
+#'    ages. Shaded areas are 50\% and 95\% posterior intervals.}
 #' }
 #'
 #' @param summarise See `hamstr::plot.hamstr_fit()`.
