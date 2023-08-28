@@ -47,10 +47,6 @@ non-constant peat addition rate (PAR).
 ``` r
 library(peathamstr)
 library(pangaear) # to download example data
-#> Warning: package 'pangaear' was built under R version 4.2.3
-#> Registered S3 method overwritten by 'httr':
-#>   method           from  
-#>   print.cache_info hoardr
 library(ggplot2)
 ```
 
@@ -319,12 +315,12 @@ plot(
     dplyr::slice(-1) |> 
     dplyr::pull(C)
 )
-#> Warning in get_posterior_cumulative_carbon_mass(object = object, depth =
-#> depth, : * Cumulative carbon contents start at 0 for the first measured layer.
-#> Warning in get_posterior_cumulative_carbon_mass(object = object, depth =
-#> depth, : * Measured layers do not cover completely modeled layers (are not
-#> contiguous). This results in `NA` carbon contents. `NA` carbon contents are
-#> filled in order to compute cumulative carbon masses.
+#> Warning in get_posterior_cumulative_carbon_mass(object = object, depth = depth, : *
+#> Cumulative carbon contents start at 0 for the first measured layer.
+#> Warning in get_posterior_cumulative_carbon_mass(object = object, depth = depth, : *
+#> Measured layers do not cover completely modeled layers (are not contiguous). This results
+#> in `NA` carbon contents. `NA` carbon contents are filled in order to compute cumulative
+#> carbon masses.
 ```
 
 <img src="man/figures/README-example-6-1.png" width="60%" style="display: block; margin: auto;" />
