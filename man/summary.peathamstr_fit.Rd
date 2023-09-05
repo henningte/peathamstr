@@ -6,8 +6,7 @@
 \usage{
 \method{summary}{peathamstr_fit}(
   object,
-  type = c("age_models", "acc_rates", "pars", "mass_fluxes", "carbon_fluxes",
-    "cumulative_mass"),
+  type = c("age_models", "acc_rates", "pars", "mass_fluxes", "cumulative_mass"),
   ...
 )
 }
@@ -22,9 +21,6 @@ One of:
 (yr cm\eqn{^{-1}}) at the depths the model was constructed on}
 \item{\code{"mass_fluxes"}}{Predicts posterior mass fluxes (kg yr\eqn{^{-1}}
 m\eqn{^{-2}}) at the depths the model was constructed on.}
-\item{\code{"carbon_fluxes"}}{Predicts posterior carbon mass fluxes
-(kg yr\eqn{^{-1}} m\eqn{^{-2}}) at the depths the model was constructed
-on. For this, argument \code{carbon_content} needs to be specified.}
 }}
 
 \item{...}{further parameters passed to individual summary functions.}

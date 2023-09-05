@@ -6,12 +6,10 @@
 \usage{
 \method{plot}{peathamstr_fit}(
   x,
-  type = c("default", "age_models", "acc_rates", "hier_acc_rates",
-    "acc_mean_prior_post", "mem_prior_post", "L_prior_post", "D_prior_post", "PDF_14C",
-    "cumulative_mass_profile", "cumulative_carbon_mass_profile", "mass_fluxes",
-    "carbon_fluxes"),
+  type = c("default", "age_models", "acc_rates", "hier_acc_rates", "acc_mean_prior_post",
+    "mem_prior_post", "L_prior_post", "D_prior_post", "PDF_14C",
+    "cumulative_mass_profile", "mass_fluxes"),
   summarise,
-  carbon_content = NULL,
   ...
 )
 }
@@ -24,15 +22,8 @@ provided by the 'peathamstr' package:
 \describe{
 \item{\code{"cumulative_mass_profile"}}{Plots the modeled and measured
 cumulative masses versus depth.}
-\item{\code{"cumulative_carbon_mass_profile"}}{Plots the modeled and measured
-cumulative carbon masses versus depth. If the modeled core does not start
-at 0 cm depth, this will set the start cumulative carbon mass to 0 kg
-m\eqn{^{-1}}.}
 \item{\code{"mass_fluxes"}}{Plots the modeled and measured
 net mass uptake (NMU) and net mass release (NMR) versus average estimated
-ages. Shaded areas are 50\\% and 95\\% posterior intervals.}
-\item{\code{"carbon_fluxes"}}{Plots the modeled and measured
-net carbon uptake (NCU) and net carbon release (NCR) versus average estimated
 ages. Shaded areas are 50\\% and 95\\% posterior intervals.}
 }}
 

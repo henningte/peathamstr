@@ -26,17 +26,31 @@ peat_hamstr(
   model_hiatus = FALSE,
   H_top = NULL,
   H_bottom = NULL,
-  cumulative_mass,
+  layer_mass,
   cumulative_mass0,
-  depth2,
+  depth_clymo_par_constant,
   depth2_upper,
   depth2_lower,
-  p1_Mod_cumulative_mass_shape = 5,
-  p2_Mod_cumulative_mass_shape = 0.01,
+  p1_layer_mass_shape = 5,
+  p2_layer_mass_shape = 0.01,
+  p3_layer_mass_shape = 100,
   p1_clymo_par = 3,
   p2_clymo_par = 0.02,
-  p1_clymo_alpha = 2,
-  p2_clymo_alpha = 50,
+  p3_clymo_par = 100,
+  p1_clymo_alpha_1 = 2,
+  p2_clymo_alpha_1 = 50,
+  p3_clymo_alpha_1 = 1/1000,
+  p1_clymo_alpha_2 = 3,
+  p2_clymo_alpha_2 = 3/0.005,
+  p3_clymo_alpha_2 = 1/10000,
+  p1_ac_age = 3,
+  p2_ac_age = 3/80,
+  p3_ac_age = 40,
+  clymo_par_memory_p1 = 1,
+  clymo_par_memory_p2 = 1,
+  p1_age0 = 5,
+  p2_age0 = 5/1,
+  p3_age0 = 1,
   sample_posterior = TRUE,
   hamstr_control = list(),
   stan_sampler_args = list()
@@ -129,20 +143,14 @@ to the scale. Units are those of the depth variable, e.g. cm.}
 \item{H_top, H_bottom}{limits to the location of a hiatus. By default these
 are set to the top and bottom data points but can be set by the user}
 
-\item{cumulative_mass}{A numeric vector with the cumulative mass of the peat
-layers (kg m\eqn{^{-1}}).}
-
 \item{cumulative_mass0}{A numeric value with the cumulative mass of all peat
 layers above the first considered peat layer (kg m\eqn{^{-1}}).}
-
-\item{depth2}{A numeric vector with the same length as \code{cumulative_mass}
-defining the depth of the corresponding peat layers.}
 
 \item{depth2_upper, depth2_lower}{A numeric vector with the same length as
 \code{cumulative_mass} defining the depth of the upper and lower boundaries of the
 corresponding peat layers.}
 
-\item{p1_Mod_cumulative_mass_shape, p2_Mod_cumulative_mass_shape}{A numeric
+\item{p1_layer_mass_shape, p2_layer_mass_shape}{A numeric
 value representing the shape and rate parameter of a Gamma distribution
 modeling the shape parameter of the Gamma distribution assumed for modeled
 peat cumulative masses.}
@@ -150,11 +158,6 @@ peat cumulative masses.}
 \item{p1_clymo_par, p2_clymo_par}{A numeric
 value representing the shape and rate parameter of the Gamma distribution
 modeling peat mass addition rates (g m\eqn{^{-2}} yr\eqn{^{-1}}).}
-
-\item{p1_clymo_alpha, p2_clymo_alpha}{A numeric
-value representing the shape and rate parameter of the Gamma distribution
-modeling peat decomposition rate (in a simple exponential decomposition
-model) (yr\eqn{^{-1}}).}
 
 \item{sample_posterior}{if set to FALSE, hamstr skips sampling the model and
 returns only the data, model structure and prior parameters so that data
@@ -168,6 +171,17 @@ development. See \code{\link[hamstr]{hamstr_control}} for details.}
 named list. e.g. list(chains = 8, iter = 4000) to run 8 MCMC chains of 4000
 iterations instead of the default 4 chains of 2000 iterations.
 See \code{\link[hamstr]{get_stan_sampler_args}} for details.}
+
+\item{cumulative_mass}{A numeric vector with the cumulative mass of the peat
+layers (kg m\eqn{^{-1}}).}
+
+\item{depth2}{A numeric vector with the same length as \code{cumulative_mass}
+defining the depth of the corresponding peat layers.}
+
+\item{p1_clymo_alpha, p2_clymo_alpha}{A numeric
+value representing the shape and rate parameter of the Gamma distribution
+modeling peat decomposition rate (in a simple exponential decomposition
+model) (yr\eqn{^{-1}}).}
 }
 \description{
 Estimates an age-depth model and parameters from a modified Clymo Bog Growth Model

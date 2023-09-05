@@ -457,79 +457,6 @@ generated quantities {
       }
     }
 
-
-    nmp_rep = Mod_layer_mass;
-    nmu_rep = nmp_rep ./ fraction_mass_lost;
-
-    // nmr_rep
-    for(k in 1:N2_c) {
-
-      // current time
-      int N2_c_k = N2_c - k + 1;
-      vector[N2_c_k] Mod_age2_upper_start_rep = Mod_age2_upper_or[k:N2_c] - Mod_age2_upper_or[k];
-      vector[N2_c_k] Mod_age2_upper_end_rep = Mod_age2_upper_start_rep + Mod_age2_duration[k];
-
-      // time information to reconstruct layer masses at the start of the current interval
-      vector[N2_c_k] Mod_age2_duration_acrotelm_here_start_rep = rep_vector(ac_age, N2_c_k);
-      vector[N2_c_k] Mod_age2_duration_catotelm_here_start_rep = rep_vector(Mod_age2_duration[k] - ac_age, N2_c_k);
-      vector[N2_c_k] Mod_age2_duration_acrotelm_next_start_rep = rep_vector(0.0, N2_c_k);
-      vector[N2_c_k] Mod_age2_duration_catotelm_next_start_rep = Mod_age2_upper_start_rep;
-      if(ac_age > Mod_age2_duration[k]) { // AC boundary is outside the layer
-        Mod_age2_duration_acrotelm_here_start_rep = rep_vector(Mod_age2_duration[k], N2_c_k);
-        Mod_age2_duration_catotelm_here_start_rep = rep_vector(0.0, N2_c_k);
-        Mod_age2_duration_catotelm_next_start_rep = Mod_age2_upper_start_rep - (ac_age - Mod_age2_duration_acrotelm_here_start_rep);
-        for(m in 1:N2_c_k) {
-          if(Mod_age2_duration_catotelm_next_start_rep[m] < 0.0) {
-            Mod_age2_duration_catotelm_next_start_rep[m] = 0.0;
-          }
-        }
-        Mod_age2_duration_acrotelm_next_start_rep = Mod_age2_upper_start_rep - Mod_age2_duration_catotelm_next_start_rep;
-      }
-
-      // time information to reconstruct layer masses at the end of the current interval
-      vector[N2_c_k] Mod_age2_duration_acrotelm_here_end_rep = rep_vector(ac_age, N2_c_k);
-      vector[N2_c_k] Mod_age2_duration_catotelm_here_end_rep = rep_vector(Mod_age2_duration[k] - ac_age, N2_c_k);
-      vector[N2_c_k] Mod_age2_duration_acrotelm_next_end_rep = rep_vector(0.0, N2_c_k);
-      vector[N2_c_k] Mod_age2_duration_catotelm_next_end_rep = Mod_age2_upper_end_rep;
-      if(ac_age > Mod_age2_duration[k]) { // AC boundary is outside the layer
-        Mod_age2_duration_acrotelm_here_end_rep = rep_vector(Mod_age2_duration[k], N2_c_k);
-        Mod_age2_duration_catotelm_here_end_rep = rep_vector(0.0, N2_c_k);
-        Mod_age2_duration_catotelm_next_end_rep = Mod_age2_upper_end_rep - (ac_age - Mod_age2_duration_acrotelm_here_end_rep);
-        for(m in 1:N2_c_k) {
-          if(Mod_age2_duration_catotelm_next_end_rep[m] < 0.0) {
-            Mod_age2_duration_catotelm_next_end_rep[m] = 0.0;
-          }
-        }
-        Mod_age2_duration_acrotelm_next_end_rep = Mod_age2_upper_end_rep - Mod_age2_duration_catotelm_next_end_rep;
-      }
-
-      // reconstruct layer masses
-      vector[N2_c_k] ncu_1 = nmp_rep[k:N2_c] ./ (exp(- clymo_alpha_1 * Mod_age2_duration_acrotelm_next_end_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_next_end_rep - clymo_alpha_1 * Mod_age2_duration_acrotelm_here_end_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_here_end_rep));
-      vector[N2_c_k] ncu_0 = nmp_rep[k:N2_c] ./ (exp(- clymo_alpha_1 * Mod_age2_duration_acrotelm_next_start_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_next_start_rep - clymo_alpha_1 * Mod_age2_duration_acrotelm_here_start_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_here_start_rep));
-      nmr_rep[k] = sum(ncu_1 - ncu_0);
-    }
-
-  }
-
-  // normalize all to their duration
-  nmp_rep = nmp_rep ./ Mod_age2_duration;
-  nmu_rep = nmu_rep ./ Mod_age2_duration;
-  nmr_rep = nmr_rep ./ Mod_age2_duration;
-
-  // new:start
-  {
-
-    vector[N2_c] Mod_age2_upper_or = Mod_age2_all[1:N2_c];
-    vector[N2_c] Mod_age2_lower_or = Mod_age2_all[2:(N2_c + 1)];
-    vector[N2_c] fraction_mass_lost = (exp(- clymo_alpha_2 * (Mod_age2_duration_catotelm_next + Mod_age2_duration_catotelm_here)));
-
-    // mass fluxes
-    for(n in 1:N2_c) {
-      if(Mod_age2_upper_or[n] < ac_age) { // need to decompose the layer down to the acrotelm-catotelm boundary
-         fraction_mass_lost[n] = 1 / exp( - clymo_alpha_1 * (ac_age - Mod_age2_upper_or[n]));
-      }
-    }
-
     nmp_rep = Mod_layer_mass;
     nmu_rep = nmp_rep ./ fraction_mass_lost;
 
@@ -546,28 +473,55 @@ generated quantities {
       vector[N2_c_k] Mod_age2_upper_end_rep = Mod_age2_upper_start_rep + Mod_age2_duration[k];
 
       // time spent in acrotelm and catotelm while recomposing to the start of the current interval
-      vector[N2_c_k] Mod_age2_duration_catotelm_start_rep = Mod_age2_duration_catotelm_tot_rep - Mod_age2_upper_start_rep;
-      vector[N2_c_k] Mod_age2_duration_acrotelm_start_rep = rep_vector(0.0, N2_c_k);
+      //vector[N2_c_k] Mod_age2_duration_catotelm_start_rep = Mod_age2_duration_catotelm_tot_rep[k:N2_c] - Mod_age2_upper_start_rep;
+      //vector[N2_c_k] Mod_age2_duration_acrotelm_start_rep = rep_vector(0.0, N2_c_k);
+      //for(j in 1:N2_c_k) {
+      //  if(Mod_age2_duration_catotelm_start_rep[j] <= 0.0) { // layer also spent some time in the acrotelm
+      //    Mod_age2_duration_catotelm_start_rep[j] = Mod_age2_duration_catotelm_tot_rep[j];
+      //    Mod_age2_duration_acrotelm_start_rep[j] = Mod_age2_upper_start_rep[j] - Mod_age2_duration_catotelm_start_rep[j];
+      //  }
+      //}
+
+      //// time spent in acrotelm and catotelm while recomposing to the end of the current interval
+      //vector[N2_c_k] Mod_age2_duration_catotelm_end_rep = Mod_age2_duration_catotelm_tot_rep[k:N2_c] - Mod_age2_upper_end_rep;
+      //vector[N2_c_k] Mod_age2_duration_acrotelm_end_rep = rep_vector(0.0, N2_c_k);
+      //for(j in 1:N2_c_k) {
+      //  if(Mod_age2_duration_catotelm_end_rep[j] <= 0.0) { // layer also spent some time in the acrotelm
+      //    Mod_age2_duration_catotelm_end_rep[j] = Mod_age2_duration_catotelm_tot_rep[j];
+      //    Mod_age2_duration_acrotelm_end_rep[j] = Mod_age2_upper_end_rep[j] - Mod_age2_duration_catotelm_end_rep[j];
+      //  }
+      //}
+
+      // new: start
+      vector[N2_c_k] Mod_age2_duration_catotelm_start_rep;
+      vector[N2_c_k] Mod_age2_duration_acrotelm_start_rep;
       for(j in 1:N2_c_k) {
-        if(Mod_age2_duration_catotelm_start_rep[j] < 0.0) { // layer also spent some time in the acrotelm
-          Mod_age2_duration_catotelm_start_rep[j] = Mod_age2_duration_catotelm_tot_rep[j];
-          Mod_age2_duration_acrotelm_start_rep[j] = Mod_age2_upper_start_rep[j] - Mod_age2_duration_catotelm_start_rep[j];
+        int index = j + k - 1;
+        if(Mod_age2_upper_or[k] <= Mod_age2_duration_catotelm_tot_rep[index]) {// layer stays in catotelm across the entire time
+          Mod_age2_duration_catotelm_start_rep[j] = Mod_age2_upper_or[k];
+          Mod_age2_duration_acrotelm_start_rep[j] = 0.0;
+        } else {
+          Mod_age2_duration_catotelm_start_rep[j] = Mod_age2_duration_catotelm_tot_rep[index];
+          Mod_age2_duration_acrotelm_start_rep[j] = Mod_age2_upper_or[k] - Mod_age2_duration_catotelm_tot_rep[index];
         }
       }
 
-      // time spent in acrotelm and catotelm while recomposing to the end of the current interval
-      vector[N2_c_k] Mod_age2_duration_catotelm_end_rep = Mod_age2_duration_catotelm_tot_rep - Mod_age2_upper_end_rep;
-      vector[N2_c_k] Mod_age2_duration_acrotelm_end_rep = rep_vector(0.0, N2_c_k);
+      vector[N2_c_k] Mod_age2_duration_catotelm_end_rep;
+      vector[N2_c_k] Mod_age2_duration_acrotelm_end_rep;
       for(j in 1:N2_c_k) {
-        if(Mod_age2_duration_catotelm_end_rep[j] < 0.0) { // layer also spent some time in the acrotelm
-          Mod_age2_duration_catotelm_end_rep[j] = Mod_age2_duration_catotelm_tot_rep[j];
-          Mod_age2_duration_acrotelm_end_rep[j] = Mod_age2_upper_end_rep[j] - Mod_age2_duration_catotelm_end_rep[j];
+        int index = j + k - 1;
+        if(Mod_age2_lower_or[k] <= Mod_age2_duration_catotelm_tot_rep[index]) {// layer stays in catotelm across the entire time
+          Mod_age2_duration_catotelm_end_rep[j] = Mod_age2_lower_or[k];
+          Mod_age2_duration_acrotelm_end_rep[j] = 0.0;
+        } else {
+          Mod_age2_duration_catotelm_end_rep[j] = Mod_age2_duration_catotelm_tot_rep[index];
+          Mod_age2_duration_acrotelm_end_rep[j] = Mod_age2_lower_or[k] - Mod_age2_duration_catotelm_tot_rep[index];
         }
       }
 
       // reconstruct layer masses
-      vector[N2_c_k] ncu_1 = nmp_rep[k:N2_c] ./ (exp(- clymo_alpha_1 * Mod_age2_duration_acrotelm_end_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_end_rep));
-      vector[N2_c_k] ncu_0 = nmp_rep[k:N2_c] ./ (exp(- clymo_alpha_1 * Mod_age2_duration_acrotelm_start_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_start_rep));
+      vector[N2_c_k] ncu_0 = nmp_rep[k:N2_c] ./ (exp(- clymo_alpha_1 * Mod_age2_duration_acrotelm_end_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_end_rep));
+      vector[N2_c_k] ncu_1 = nmp_rep[k:N2_c] ./ (exp(- clymo_alpha_1 * Mod_age2_duration_acrotelm_start_rep - clymo_alpha_2 * Mod_age2_duration_catotelm_start_rep));
       nmr_rep[k] = sum(ncu_1 - ncu_0);
 
     }

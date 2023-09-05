@@ -15,7 +15,7 @@
 #' `cumulative_mass` defining the depth of the upper and lower boundaries of the
 #' corresponding peat layers.
 #'
-#' @param p1_Mod_cumulative_mass_shape,p2_Mod_cumulative_mass_shape A numeric
+#' @param p1_layer_mass_shape,p2_layer_mass_shape A numeric
 #' value representing the shape and rate parameter of a Gamma distribution
 #' modeling the shape parameter of the Gamma distribution assumed for modeled
 #' peat cumulative masses.
@@ -47,17 +47,31 @@ peat_hamstr <-
            D_prior_scale = 10,
            model_hiatus = FALSE,
            H_top = NULL, H_bottom = NULL,
-           cumulative_mass,
+           layer_mass,
            cumulative_mass0,
-           depth2,
+           depth_clymo_par_constant,
            depth2_upper,
            depth2_lower,
-           p1_Mod_cumulative_mass_shape = 5,
-           p2_Mod_cumulative_mass_shape = 0.01,
+           p1_layer_mass_shape = 5,
+           p2_layer_mass_shape = 0.01,
+           p3_layer_mass_shape = 100,
            p1_clymo_par = 3,
            p2_clymo_par = 0.02,
-           p1_clymo_alpha = 2,
-           p2_clymo_alpha = 50,
+           p3_clymo_par = 100,
+           p1_clymo_alpha_1 = 2,
+           p2_clymo_alpha_1 = 50,
+           p3_clymo_alpha_1 = 1/1000,
+           p1_clymo_alpha_2 = 3,
+           p2_clymo_alpha_2 = 3/0.005,
+           p3_clymo_alpha_2 = 1/10000,
+           p1_ac_age = 3,
+           p2_ac_age = 3/80,
+           p3_ac_age = 40,
+           clymo_par_memory_p1 = 1,
+           clymo_par_memory_p2 = 1,
+           p1_age0 = 5,
+           p2_age0 = 5/1,
+           p3_age0 = 1,
            sample_posterior = TRUE,
            hamstr_control = list(),
            stan_sampler_args = list()
@@ -97,8 +111,8 @@ peat_hamstr <-
     # # data
     # res$data$cumulative_mass <- cumulative_mass
     # res$data$cumulative_mass0 <- cumulative_mass0
-    # res$data$p1_Mod_cumulative_mass_shape <- p1_Mod_cumulative_mass_shape
-    # res$data$p2_Mod_cumulative_mass_shape <- p2_Mod_cumulative_mass_shape
+    # res$data$p1_layer_mass_shape <- p1_layer_mass_shape
+    # res$data$p2_layer_mass_shape <- p2_layer_mass_shape
     # res$data$p1_clymo_par <- p1_clymo_par
     # res$data$p2_clymo_par <- p2_clymo_par
     # res$data$p1_clymo_alpha <- p1_clymo_alpha
@@ -143,7 +157,7 @@ peat_hamstr <-
     used_sampler_args <- do.call(hamstr:::get_stan_sampler_args, stan_sampler_args)
     set.seed(used_sampler_args$seed)
     inits <- replicate(used_sampler_args$chains, list(hamstr:::get_inits_hamstr(stan_dat)))
-    args <- list(object = stanmodels$peathamstr, data = stan_dat,
+    args <- list(object = stanmodels$mm2, data = stan_dat,
                  init = inits)
     args <- append(args, used_sampler_args)
     if (sample_posterior) {
@@ -165,17 +179,31 @@ peat_make_stan_dat_hamstr <- function (...)
 {
   l <- c(as.list(parent.frame()))
   default.args <- formals(peat_hamstr)
-  default.args$cumulative_mass <- as.name("cumulative_mass")
+  default.args$cumulative_mass <- as.name("layer_mass")
   default.args$cumulative_mass0 <- as.name("cumulative_mass0")
-  default.args$p1_Mod_cumulative_mass_shape <- as.name("p1_Mod_cumulative_mass_shape")
-  default.args$p2_Mod_cumulative_mass_shape <- as.name("p2_Mod_cumulative_mass_shape")
+  default.args$p1_layer_mass_shape <- as.name("p1_layer_mass_shape")
+  default.args$p2_layer_mass_shape <- as.name("p2_layer_mass_shape")
+  default.args$p3_layer_mass_shape <- as.name("p3_layer_mass_shape")
   default.args$p1_clymo_par <- as.name("p1_clymo_par")
   default.args$p2_clymo_par <- as.name("p2_clymo_par")
-  default.args$p1_clymo_alpha <- as.name("p1_clymo_alpha")
-  default.args$p1_clymo_alpha <- as.name("p1_clymo_alpha")
-  default.args$depth2 <- as.name("depth2")
-  default.args$depth2 <- as.name("depth2_upper")
-  default.args$depth2 <- as.name("depth2_lower")
+  default.args$p3_clymo_par <- as.name("p3_clymo_par")
+  default.args$p1_clymo_alpha_1 <- as.name("p1_clymo_alpha_1")
+  default.args$p2_clymo_alpha_1 <- as.name("p2_clymo_alpha_1")
+  default.args$p3_clymo_alpha_1 <- as.name("p3_clymo_alpha_1")
+  default.args$p1_clymo_alpha_2 <- as.name("p1_clymo_alpha_2")
+  default.args$p2_clymo_alpha_2 <- as.name("p2_clymo_alpha_2")
+  default.args$p3_clymo_alpha_2 <- as.name("p3_clymo_alpha_2")
+  default.args$p1_ac_age <- as.name("p1_ac_age")
+  default.args$p2_ac_age <- as.name("p2_ac_age")
+  default.args$p3_ac_age <- as.name("p3_ac_age")
+  default.args$depth2_upper <- as.name("depth2_upper")
+  default.args$depth2_lower <- as.name("depth2_lower")
+  default.args$clymo_par_memory_p1 <- as.name("clymo_par_memory_p1")
+  default.args$clymo_par_memory_p2 <- as.name("clymo_par_memory_p2")
+  default.args$clymo_par_memory_p1 <- as.name("clymo_par_memory_p1")
+  default.args$p1_age0 <- as.name("p1_age0")
+  default.args$p2_age0 <- as.name("p2_age0")
+  default.args$p3_age0 <- as.name("p3_age0")
   default.arg.nms <- names(default.args)
   l <- l[lapply(l, is.null) == FALSE]
   default.args[names(l)] <- l
@@ -259,11 +287,9 @@ peat_make_stan_dat_hamstr <- function (...)
   l$mem_strength = l$mem_strength
   l$delta_c = depth_range/l$K_fine
   l$c_depth_bottom = l$delta_c * l$c + l$top_depth
-  l$c_depth_top = c(l$top_depth, l$c_depth_bottom[1:(l$K_fine -
-                                                       1)])
+  l$c_depth_top = c(l$top_depth, l$c_depth_bottom[1:(l$K_fine - 1)])
   l$modelled_depths <- c(l$c_depth_top[1], l$c_depth_bottom)
-  l$which_c = sapply(l$depth, function(d) which.max((l$c_depth_bottom <
-                                                       d) * (l$c_depth_bottom - d)))
+  l$which_c = sapply(l$depth, function(d) which.max((l$c_depth_bottom < d) * (l$c_depth_bottom - d)))
   l <- append(l, alpha_idx)
   l$n_lvls <- length(l$K)
   l$scale_shape = as.numeric(l$scale_shape)
@@ -277,17 +303,44 @@ peat_make_stan_dat_hamstr <- function (...)
     l$H_bottom = l$bottom_depth
   l$smooth_i <- hamstr:::get_smooth_i(l, l$L_prior_mean)
   l$I <- nrow(l$smooth_i)
-  # clymo model
-  # l$cumulative_mass = obs_cumulative_mass
-  # l$p1_Mod_cumulative_mass_shape = p1_Mod_cumulative_mass_shape
-  # l$p2_Mod_cumulative_mass_shape = p2_Mod_cumulative_mass_shape
-  # l$p1_clymo_par = p1_clymo_par
-  # l$p2_clymo_par = p2_clymo_par
-  # l$p1_clymo_alpha = p1_clymo_alpha
-  # l$p2_clymo_alpha = p2_clymo_alpha
-  l$N2 <- length(l$depth2)
-  l$which_c2 = sapply(l$depth2, function(d) which.max((l$c_depth_bottom <
-                                                         d) * (l$c_depth_bottom - d)))
+
+  ## clymo model
+
+  # first: construct sections for mass data
+  c2 <-
+    tibble::tibble(
+      sample_depth_upper = l$depth2_upper,
+      sample_depth_lower = l$depth2_lower,
+      index_has_mass_measurements = TRUE
+    )
+
+  # add missing sections to make the sequence contiguous
+  c2 <-
+    dplyr::bind_rows(
+      c2,
+      purrr::map_dfr(seq_len(nrow(c2))[-1], function(i) {
+        tibble::tibble(
+          sample_depth_upper = c2$sample_depth_lower[i - 1],
+          sample_depth_lower = c2$sample_depth_upper[i],
+          index_has_mass_measurements = FALSE
+        )
+      })
+    ) |>
+    dplyr::mutate(
+      sample_thickness = sample_depth_lower - sample_depth_upper,
+      sample_depth_mean = sample_depth_upper + sample_thickness * 0.5
+    ) |>
+    dplyr::filter(sample_thickness != 0.0) |>
+    dplyr::arrange(sample_depth_upper)
+
+  l$index_clymo_par_constant <- which(c2$sample_depth_lower >= l$depth_clymo_par_constant & c2$sample_depth_upper <= l$depth_clymo_par_constant)[[1]]
+  l$N2 <- sum(c2$index_has_mass_measurements)
+  l$N2_c <- nrow(c2)
+  l$index_has_mass_measurements <- which(c2$index_has_mass_measurements)
+  l$depth2_all <- c(c2$sample_depth_upper, tail(c2$sample_depth_lower, 1L))
+  l$which_c2_all <- sapply(l$depth2_all, function(d) which.max((l$c_depth_bottom < d) * (l$c_depth_bottom - d)))
+  l$which_c2_lower <- sapply(c2$sample_depth_lower, function(d) which.max((l$c_depth_bottom < d) * (l$c_depth_bottom - d)))
+
   return(l)
 }
 
@@ -302,15 +355,8 @@ peat_make_stan_dat_hamstr <- function (...)
 #' \describe{
 #'   \item{`"cumulative_mass_profile"`}{Plots the modeled and measured
 #'    cumulative masses versus depth.}
-#'    \item{`"cumulative_carbon_mass_profile"`}{Plots the modeled and measured
-#'    cumulative carbon masses versus depth. If the modeled core does not start
-#'    at 0 cm depth, this will set the start cumulative carbon mass to 0 kg
-#'    m\eqn{^{-1}}.}
 #'   \item{`"mass_fluxes"`}{Plots the modeled and measured
 #'    net mass uptake (NMU) and net mass release (NMR) versus average estimated
-#'    ages. Shaded areas are 50\% and 95\% posterior intervals.}
-#'   \item{`"carbon_fluxes"`}{Plots the modeled and measured
-#'    net carbon uptake (NCU) and net carbon release (NCR) versus average estimated
 #'    ages. Shaded areas are 50\% and 95\% posterior intervals.}
 #' }
 #'
@@ -334,12 +380,9 @@ plot.peathamstr_fit <- function(
         "D_prior_post",
         "PDF_14C",
         "cumulative_mass_profile",
-        "cumulative_carbon_mass_profile",
-        "mass_fluxes",
-        "carbon_fluxes"
+        "mass_fluxes"
       ),
     summarise,
-    carbon_content = NULL,
     ...)
 {
 
@@ -353,10 +396,10 @@ plot.peathamstr_fit <- function(
           dplyr::bind_rows(
             tibble::tibble(
               iter = 1L,
-              depth = x$data$depth2,
               depth_upper = x$data$depth2_upper,
               depth_lower = x$data$depth2_lower,
-              y = x$data$cumulative_mass,
+              depth = x$data$depth2_upper,
+              y = x$data$layer_mass,
               variable_type = "observed"
             ),
             predict(
@@ -367,8 +410,8 @@ plot.peathamstr_fit <- function(
             ) |>
               dplyr::rename(
                 y = "cumulative_mass",
-                depth_upper = "c_depth_top",
-                depth_lower = "c_depth_bottom"
+                depth_upper = "depth2_upper",
+                depth_lower = "depth2_lower"
               ) |>
               dplyr::mutate(
                 variable_type = "predicted"
@@ -382,43 +425,6 @@ plot.peathamstr_fit <- function(
           ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$`2.5%`, ymax = .data$`97.5%`, group = .data$variable_type), color = "grey50", width = 0) +
           ggplot2::geom_point(ggplot2::aes(fill = .data$variable_type), shape = 21) +
           ggplot2::labs(y = expression("Cumulative mass (kg m"^{-2}*")"), x = "Depth of upper layer boundary (cm)") +
-          ggplot2::guides(color = ggplot2::guide_legend(title = ""))
-
-      },
-      "cumulative_carbon_mass_profile" = {
-
-          dplyr::bind_rows(
-            tibble::tibble(
-              iter = 1L,
-              depth = x$data$depth2[-1],
-              depth_upper = x$data$depth2_upper[-1],
-              depth_lower = x$data$depth2_lower[-1],
-              y = cumsum((x$data$cumulative_mass[-1] - x$data$cumulative_mass[-length(x$data$cumulative_mass)]) * carbon_content[-1]),
-              variable_type = "observed"
-            ),
-            predict(
-              object = x,
-              type = "cumulative_carbon_mass",
-              depth = "modelled",
-              carbon_content = carbon_content
-            ) |>
-              dplyr::rename(
-                y = "cumulative_mass",
-                depth_upper = "c_depth_top",
-                depth_lower = "c_depth_bottom"
-              ) |>
-              dplyr::mutate(
-                variable_type = "predicted"
-              )
-          ) |>
-          dplyr::group_by(
-            .data$variable_type, .data$depth, .data$depth_upper, .data$depth_lower
-          ) |>
-          summarise_q(var = .data$y, probs = c(0.025, 0.159, 0.25, 0.5, 0.75, 0.841, 0.975)) |>
-          ggplot2::ggplot(ggplot2::aes(y = .data$mean, x = .data$depth)) +
-          ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$`2.5%`, ymax = .data$`97.5%`, group = .data$variable_type), color = "grey50", width = 0) +
-          ggplot2::geom_point(ggplot2::aes(fill = .data$variable_type), shape = 21) +
-          ggplot2::labs(y = expression("Cumulative carbon mass (kg m"^{-2}*")"), x = "Depth of upper layer boundary (cm)") +
           ggplot2::guides(color = ggplot2::guide_legend(title = ""))
 
       },
@@ -439,25 +445,6 @@ plot.peathamstr_fit <- function(
           ggplot2::geom_path(ggplot2::aes(color = .data$variable)) +
           ggplot2::labs(y = expression("Mass flux (kg m"^{-2}~yr^{-1}*")"), x = "Average estimated age (yr)") +
           ggplot2::guides(fill = ggplot2::guide_legend(title = "Mass flux"), color = ggplot2::guide_legend(title = "Mass flux"))
-
-      },
-      "carbon_fluxes" = {
-        summary(
-          object = x,
-          type = type,
-          probs = c(0.025, 0.159, 0.25, 0.5, 0.75, 0.841, 0.975),
-          carbon_content = carbon_content
-        ) |>
-          dplyr::mutate(
-            variable = toupper(variable)
-          ) |>
-          ggplot2::ggplot(ggplot2::aes(y = .data$mean, x = .data$age)) +
-          geom_hline(yintercept = 0, color = "grey50") +
-          ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$`2.5%`, ymax = .data$`97.5%`, fill = .data$variable), color = NA, alpha = 0.3) +
-          ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$`25%`, ymax = .data$`75%`, fill = .data$variable), color = NA, alpha = 0.3) +
-          ggplot2::geom_path(ggplot2::aes(color = .data$variable)) +
-          ggplot2::labs(y = expression("Carbon flux (kg m"^{-2}~yr^{-1}*")"), x = "Average estimated age (yr)") +
-          ggplot2::guides(fill = ggplot2::guide_legend(title = "Carbon flux"), color = ggplot2::guide_legend(title = "Carbon flux"))
 
       })
   }

@@ -6,11 +6,9 @@
 \usage{
 \method{predict}{peathamstr_fit}(
   object,
-  type = c("age_models", "acc_rates", "mass_fluxes", "carbon_fluxes",
-    "cumulative_mass", "cumulative_carbon_mass", "apparent_mass_accumulation_rates",
-    "apparent_carbon_accumulation_rates"),
+  type = c("age_models", "acc_rates", "mass_fluxes", "cumulative_mass",
+    "apparent_mass_accumulation_rates"),
   depth = c("modelled", "data"),
-  carbon_content = NULL,
   ...
 )
 }
@@ -25,9 +23,6 @@ One of:
 (yr cm\eqn{^{-1}}) at the depths the model was constructed on}
 \item{\code{"mass_fluxes"}}{Predicts posterior mass fluxes (kg yr\eqn{^{-1}}
 m\eqn{^{-2}}) at the depths the model was constructed on.}
-\item{\code{"carbon_fluxes"}}{Predicts posterior carbon mass fluxes
-(kg yr\eqn{^{-1}} m\eqn{^{-2}}) at the depths the model was constructed
-on. For this, argument \code{carbon_content} needs to be specified.}
 }}
 
 \item{depth}{A character value defining depth values for which predictions are
@@ -38,14 +33,6 @@ computed. Must be one of:
 }
 Alternatively can be a numeric vector to specify depths (this only works if
 \code{type == "age_models"}).}
-
-\item{carbon_content}{A numeric vector with the same length as there are
-\code{depth2} values in the input data. This only needs to be specified when
-\code{type == "carbon_fluxes"} and otherwise can be set to \code{NULL}. This will be
-used to interpolate carbon contents for layers the model was constructed on.
-The interpolated carbon contents are multiplied with the mass fluxes (as
-predicted when setting \code{type} to \code{"mass_fluxes"}) to compute respective
-carbon fluxes.}
 
 \item{...}{additional arguments to \code{hamstr} predict methods}
 }
