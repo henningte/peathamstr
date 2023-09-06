@@ -93,115 +93,59 @@ d <-
     depth_lower = depth_midpoint + 0.5
   )
 
-# subsample the data to make the example faster to compute
-set.seed(345345)
-index <- c(which(!is.na(d$age)), which(is.na(d$age)) |> sample(size = 150, replace = FALSE)) |> sort()
+# set.seed(23)
+# d <- 
+#   dplyr::bind_rows(
+#     d |>
+#       dplyr::filter(! is.na(age)),
+#     d |>
+#       dplyr::filter(is.na(age)) |>
+#       dplyr::slice_sample(n = floor(nrow(d)/3), replace = FALSE)
+#   ) |>
+#   dplyr::arrange(depth_upper)
 
-d <- 
-  d |>
-  dplyr::slice(index)#  |>
-  # dplyr::mutate(
-  #   depth_upper = c(depth_upper[[1]], depth_lower[-length(depth_lower)]) 
-  # )
+# summarize the data to make the example faster to compute
+# target_depths <- 
+#   tibble::tibble(
+#     sample_depth_upper = c(seq(min(d$depth_upper), 60, by = 2), seq(60, max(d$depth_lower), by = 20)),
+#     sample_depth_lower = c(sample_depth_upper[-1], max(d$depth_lower)) 
+#   )
 
-# new:
-d1 <- pangaear::pg_data(doi = '10.1594/PANGAEA.928183')
-d2 <- pangaear::pg_data(doi = '10.1594/PANGAEA.934722')
-
-d <- 
-  dplyr::full_join(
-    d1[[1]]$data |>
-      dplyr::select(1, 2, 3, 5) |>
-      setNames(nm = c("depth_midpoint", "thickness", "bulk_density", "C")) |>
-      dplyr::filter(!is.na(bulk_density)) |>
-      dplyr::mutate(
-        C = C/bulk_density,
-        depth_midpoint = round(depth_midpoint * 100, 1), # assumed
-        mass = bulk_density * thickness * 10000/1000,
-        cumulative_mass = c(cumsum(mass))
-      ),
-    d2[[1]]$data |>
-      dplyr::select(1, 3, 4) |>
-      setNames(nm = c("depth_midpoint", "age", "age_sd")) |>
-      dplyr::filter(!is.na(age)) |>
-      dplyr::mutate(
-        depth_midpoint = round(depth_midpoint * 100, 1),
-        age = age * 1000,
-        age_sd = age_sd * 1000
-      ) |>
-      hamstr::calibrate_14C_age(age.14C = "age", age.14C.se = "age_sd", cal_curve = "intcal20") %>%
-      dplyr::mutate(
-         age.14C.cal.se = 
-          purrr::map_dbl(seq_len(nrow(.)), function(i) {
-            if(! is.na(age[[i]]) & is.na(age.14C.cal[[i]])) {
-              Bchron::BchronCalibrate(age[[i]], ageSds = age_sd[[i]], allowOutside = T)$Date1$ageSds
-            } else {
-              age.14C.cal.se[[i]]
-            }
-          }),
-        age.14C.cal = 
-          purrr::map_dbl(seq_len(nrow(.)), function(i) {
-            if(! is.na(age[[i]]) & is.na(age.14C.cal[[i]])) {
-              Bchron::BchronCalibrate(age[[i]], ageSds = age_sd[[i]], allowOutside = T)$Date1$ages + (2003 - 1950)
-            } else {
-              age.14C.cal[[i]]
-            }
-          })
-      ) |>
-      dplyr::select(-age, -age_sd) |>
-      dplyr::rename(
-        age = "age.14C.cal",
-        age_sd = "age.14C.cal.se"
-      ),
-    by = "depth_midpoint"
-  ) |>
-  dplyr::arrange(depth_midpoint) |>
-  dplyr::filter(depth_midpoint <= max(depth_midpoint[!is.na(age)]) & depth_midpoint >= 0) |>
-  dplyr::mutate(
-    depth_upper = depth_midpoint - 0.5,
-    depth_lower = depth_midpoint + 0.5
-  )
-
-target_depths <- 
-  tibble::tibble(
-    sample_depth_upper = c(seq(min(d$depth_upper), 60, by = 2), seq(60, max(d$depth_lower), by = 20)),
-    sample_depth_lower = c(sample_depth_upper[-1], max(d$depth_lower)) 
-  )
-
-a <- 
-  dplyr::bind_rows(
-    d |>
-      dplyr::filter(!is.na(age)),
-    d |>
-      dplyr::filter(is.na(age)) %>%
-      dplyr::mutate(
-        index_target_depth =
-          purrr::map_int(seq_len(nrow(.)), function(i) {
-            index <- depth_lower[[i]] <= target_depths$sample_depth_lower & depth_upper[[i]] >= target_depths$sample_depth_upper
-            if(sum(index) == 0) {
-              NA_integer_
-            } else {
-              which(index)[[1]]
-            }
-          })
-      ) |>
-      dplyr::group_by(index_target_depth) |>
-      dplyr::summarise(
-        dplyr::across(!dplyr::all_of(c("depth_upper", "depth_lower", "depth_midpoint", "cumulative_mass", "mass", "thickness")), mean),
-        depth_upper = min(depth_upper),
-        depth_lower = max(depth_lower),
-        mass = sum(mass),
-        cumulative_mass = max(cumulative_mass),
-        .groups = "drop"
-      )
-  ) |>
-  dplyr::mutate(
-    thickness = depth_lower - depth_upper,
-    depth_midpoint = depth_upper + (thickness) * 0.5
-  ) |>
-  dplyr::select(-index_target_depth) |>
-  dplyr::arrange(depth_upper)
+# d <- 
+#   dplyr::bind_rows(
+#     d |>
+#       dplyr::filter(!is.na(age)),
+#     d |>
+#       dplyr::filter(is.na(age)) %>%
+#       dplyr::mutate(
+#         index_target_depth =
+#           purrr::map_int(seq_len(nrow(.)), function(i) {
+#             index <- depth_lower[[i]] <= target_depths$sample_depth_lower & depth_upper[[i]] >= target_depths$sample_depth_upper
+#             if(sum(index) == 0) {
+#               NA_integer_
+#             } else {
+#               which(index)[[1]]
+#             }
+#           })
+#       ) |>
+#       dplyr::group_by(index_target_depth) |>
+#       dplyr::summarise(
+#         dplyr::across(!dplyr::all_of(c("depth_upper", "depth_lower", "depth_midpoint", "cumulative_mass", "mass", "thickness")), mean),
+#         depth_upper = min(depth_upper),
+#         depth_lower = max(depth_lower),
+#         mass = sum(mass),
+#         cumulative_mass = max(cumulative_mass),
+#         .groups = "drop"
+#       )
+#   ) |>
+#   dplyr::mutate(
+#     thickness = depth_lower - depth_upper,
+#     depth_midpoint = depth_upper + (thickness) * 0.5
+#   ) |>
+#   dplyr::select(-index_target_depth) |>
+#   dplyr::arrange(depth_upper)
 ```
+
 
 Show the cumulative mass-age curve (here using only point age values and cumulative masses for dated layers). It is clearly visible that the core violates the assumptions of the original Bog Growth Model (see also @Yu.2003 for a detailed description of the peatland).
 
@@ -217,7 +161,7 @@ d |>
 
 Estimate the posterior distribution (computes the age-depth model and fits the modified Clymo model with PAR varying over time).
 
-```{r example-4, cache=TRUE}
+```{r example-4, cache=TRUE, cache.extra=`d`}
 fit_1 <- 
   peat_hamstr(
     K = c(3, 3, 3),
@@ -243,7 +187,7 @@ fit_1 <-
       # d |> 
       # dplyr::filter(!is.na(cumulative_mass)) |> 
       # dplyr::pull(depth_midpoint),
-    depth_clymo_par_constant = 100,
+    depth_clymo_par_constant = 10,
     depth2_upper =
       d |> 
       dplyr::filter(is.na(age)) |>
@@ -298,17 +242,12 @@ Show estimated and measured cumulative masses versus depth:
 # plot(fit_1, type = "cumulative_mass_profile")
 plot(
   fit_1, 
-  type = "cumulative_carbon_mass_profile", 
-  carbon_content = 
-    d |> 
-    dplyr::filter(!is.na(cumulative_mass)) |> 
-    dplyr::slice(-1) |> 
-    dplyr::pull(C)
+  type = "cumulative_mass_profile"
 )
 ```
 
 
-Plot a histogram of the estimate exponential decomposition rate:
+Plot a histogram of the estimate exponential decomposition rates for the acrotelm and catotelm and of the acrotelm-catotelm boundary age:
 
 ```{r example-7, out.width="100%", fig.align='center', fig.width=5, fig.height=2.5}
 as.data.frame(fit_1$fit, pars = c("clymo_alpha_1", "clymo_alpha_2", "ac_age")) |>
@@ -319,59 +258,8 @@ as.data.frame(fit_1$fit, pars = c("clymo_alpha_1", "clymo_alpha_2", "ac_age")) |
   ) |>
   ggplot(aes(x = value)) +
   geom_histogram(bins = 30) +
-  labs(y = "Count", x = expression(alpha~"("*yr^{-1}*")")) +
+  labs(y = "Count", x = expression(alpha~"("*yr^{-1}*") or age (yr)")) +
   facet_wrap(~ variable, scales = "free_x")
-```
-
-
-Plot net carbon uptake (NCU) and net carbon release (NCR). Gaps in default plots are due to incomplete coverage of modeled depth layers by measured depth layers:
-
-```{r example-8, out.width="60%", fig.align='center', fig.width=4.5, fig.height=7.5}
-p1 <- 
-  plot(
-  fit_1, 
-  type = "carbon_fluxes", 
-  carbon_content = 
-    d |> 
-    dplyr::filter(!is.na(cumulative_mass)) |> 
-    dplyr::slice(-1) |> 
-    dplyr::pull(C)
-) + 
-  facet_wrap(~ variable, ncol = 1L)
-
-p1
-```
-
-
-To add apparent carbon accumulation rates (aCAR), you can add: 
-
-```{r example-9, out.width="60%", fig.align='center', fig.width=4.5, fig.height=7.5}
-d_acar <- 
-  predict(
-        object = fit_1, 
-        type = "apparent_carbon_accumulation_rates", 
-        depth = "data", 
-        carbon_content = d |> 
-          dplyr::filter(!is.na(cumulative_mass)) |> 
-          dplyr::slice(-1) |> 
-          dplyr::pull(C)
-      ) |>
-  dplyr::group_by(depth_lower) |>
-  dplyr::summarise(
-    mean = mean(acar, na.rm = TRUE),
-    `2.5%` = quantile(acar, probs = 0.025, na.rm = TRUE),
-    `97.5%` = quantile(acar, probs = 0.975, na.rm = TRUE),
-    age = mean(age_lower, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-p1 +
-  geom_ribbon(
-    data = d_acar, 
-    aes(x = age, ymin = `2.5%`, ymax = `97.5%`), 
-    color = NA, fill = "grey", alpha = 0.3
-  ) +
-  geom_path(data = d_acar, aes(x = age, y = mean))
 ```
 
 
@@ -379,7 +267,7 @@ Plot for net mass uptake (NMU) and net mass release (NMR) can also be created:
 
 ```{r example-10, out.width="60%", fig.align='center', fig.width=4.5, fig.height=7.5}
 plot(fit_1, type = "mass_fluxes") + 
-  facet_wrap(~ variable, ncol = 1L)
+  facet_wrap(~ variable, ncol = 1L, scales = "free_y")
 ```
 
 

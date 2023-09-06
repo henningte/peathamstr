@@ -46,7 +46,28 @@ non-constant peat addition rate (PAR).
 
 ``` r
 library(peathamstr)
+library(rstan)
+#> Loading required package: StanHeaders
+#> 
+#> rstan version 2.26.22 (Stan version 2.26.1)
+#> For execution on a local, multicore CPU with excess RAM we recommend calling
+#> options(mc.cores = parallel::detectCores()).
+#> To avoid recompilation of unchanged Stan programs, we recommend calling
+#> rstan_options(auto_write = TRUE)
+#> For within-chain threading using `reduce_sum()` or `map_rect()` Stan functions,
+#> change `threads_per_chain` option:
+#> rstan_options(threads_per_chain = 1)
+#> Do not specify '-march=native' in 'LOCAL_CPPFLAGS' or a Makevars file
+library(magrittr)
+#> 
+#> Attaching package: 'magrittr'
+#> The following object is masked from 'package:rstan':
+#> 
+#>     extract
 library(pangaear) # to download example data
+#> Registered S3 method overwritten by 'httr':
+#>   method           from  
+#>   print.cache_info hoardr
 library(ggplot2)
 ```
 
@@ -71,7 +92,7 @@ d <-
         depth_midpoint = round(depth_midpoint * 100, 1), # assumed
         thickness = 1, # assumed
         mass = bulk_density * thickness * 10000/1000,
-        cumulative_mass = c(0.00001, cumsum(mass)[-1])
+        cumulative_mass = c(cumsum(mass))
       ),
     d2[[1]]$data |>
       dplyr::select(2, 4, 5) |>
@@ -91,22 +112,63 @@ d <-
     by = "depth_midpoint"
   ) |>
   dplyr::arrange(depth_midpoint) |>
-  dplyr::filter(depth_midpoint <= max(depth_midpoint[!is.na(age)]) & depth_midpoint >= 44) |>
+  dplyr::filter(depth_midpoint <= max(depth_midpoint[!is.na(age)]) & depth_midpoint >= 0) |>
   dplyr::mutate(
     depth_upper = depth_midpoint - 0.5,
     depth_lower = depth_midpoint + 0.5
   )
 
-# subsample the data to make the example faster to compute
-set.seed(345345)
-index <- c(which(!is.na(d$age)), which(is.na(d$age)) |> sample(size = 150, replace = FALSE)) |> sort()
+# set.seed(23)
+# d <- 
+#   dplyr::bind_rows(
+#     d |>
+#       dplyr::filter(! is.na(age)),
+#     d |>
+#       dplyr::filter(is.na(age)) |>
+#       dplyr::slice_sample(n = floor(nrow(d)/3), replace = FALSE)
+#   ) |>
+#   dplyr::arrange(depth_upper)
 
-d <- 
-  d |>
-  dplyr::slice(index) |>
-  dplyr::mutate(
-    depth_upper = c(depth_upper[[1]], depth_lower[-length(depth_lower)]) 
-  )
+# summarize the data to make the example faster to compute
+# target_depths <- 
+#   tibble::tibble(
+#     sample_depth_upper = c(seq(min(d$depth_upper), 60, by = 2), seq(60, max(d$depth_lower), by = 20)),
+#     sample_depth_lower = c(sample_depth_upper[-1], max(d$depth_lower)) 
+#   )
+
+# d <- 
+#   dplyr::bind_rows(
+#     d |>
+#       dplyr::filter(!is.na(age)),
+#     d |>
+#       dplyr::filter(is.na(age)) %>%
+#       dplyr::mutate(
+#         index_target_depth =
+#           purrr::map_int(seq_len(nrow(.)), function(i) {
+#             index <- depth_lower[[i]] <= target_depths$sample_depth_lower & depth_upper[[i]] >= target_depths$sample_depth_upper
+#             if(sum(index) == 0) {
+#               NA_integer_
+#             } else {
+#               which(index)[[1]]
+#             }
+#           })
+#       ) |>
+#       dplyr::group_by(index_target_depth) |>
+#       dplyr::summarise(
+#         dplyr::across(!dplyr::all_of(c("depth_upper", "depth_lower", "depth_midpoint", "cumulative_mass", "mass", "thickness")), mean),
+#         depth_upper = min(depth_upper),
+#         depth_lower = max(depth_lower),
+#         mass = sum(mass),
+#         cumulative_mass = max(cumulative_mass),
+#         .groups = "drop"
+#       )
+#   ) |>
+#   dplyr::mutate(
+#     thickness = depth_lower - depth_upper,
+#     depth_midpoint = depth_upper + (thickness) * 0.5
+#   ) |>
+#   dplyr::select(-index_target_depth) |>
+#   dplyr::arrange(depth_upper)
 ```
 
 Show the cumulative mass-age curve (here using only point age values and
@@ -131,6 +193,7 @@ fits the modified Clymo model with PAR varying over time).
 ``` r
 fit_1 <- 
   peat_hamstr(
+    K = c(3, 3, 3),
     depth = 
       d |> 
       dplyr::filter(!is.na(age)) |> 
@@ -143,28 +206,44 @@ fit_1 <-
       d |> 
       dplyr::filter(!is.na(age)) |> 
       dplyr::pull(age_sd),
-    cumulative_mass = 
+    layer_mass = 
       d |> 
-      dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
+      dplyr::filter(is.na(age)) |>
+      dplyr::filter(!is.na(mass)) |> 
       dplyr::pull(cumulative_mass),
-    cumulative_mass0 = d$cumulative_mass[[1]],
-    depth2 =
-      d |> 
-      dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
-      dplyr::pull(depth_midpoint),
+    cumulative_mass0 = d$cumulative_mass[[1]] - d$mass[[1]],
+    # depth2 =
+      # d |> 
+      # dplyr::filter(!is.na(cumulative_mass)) |> 
+      # dplyr::pull(depth_midpoint),
+    depth_clymo_par_constant = 10,
     depth2_upper =
       d |> 
+      dplyr::filter(is.na(age)) |>
       dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
       dplyr::pull(depth_upper),
     depth2_lower =
       d |> 
+      dplyr::filter(is.na(age)) |>
       dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
       dplyr::pull(depth_lower),
     min_age = 0,
+    top_depth = 0,
+    bottom_depth = max(d$depth_lower),
+    p1_clymo_par = 8,
+    p2_clymo_par = 8/0.2,
+    p3_clymo_par = 1/20,
+    clymo_par_memory_p1 = 2,
+    clymo_par_memory_p2 = 2,
+    p1_clymo_alpha_1 = 10, 
+    p2_clymo_alpha_1 = 10/0.04, 
+    p3_clymo_alpha_1 = 1/100,
+    p1_age0 = 20,
+    p2_age0 = 20/0.2,
+    p3_age0 = 1/20,
+    p1_ac_age = 20,
+    p2_ac_age = 20/200,
+    p3_ac_age = 40,
     # the seed argument for the sampler is set here so that
     # this example always returns the same numerical result
     stan_sampler_args = 
@@ -173,124 +252,18 @@ fit_1 <-
         chains = 4, 
         iter = 4000, 
         cores = 4, 
-        control = list(max_treedepth = 12)
+        control = list(max_treedepth = 15)
       )
   )
-#> Warning in validityMethod(object): The following variables have undefined
-#> values: nmu_rep[126],The following variables have undefined values:
-#> nmu_rep[127],The following variables have undefined values: nmu_rep[128],The
-#> following variables have undefined values: nmu_rep[129],The following
-#> variables have undefined values: nmu_rep[130],The following variables have
-#> undefined values: nmu_rep[131],The following variables have undefined values:
-#> nmu_rep[132],The following variables have undefined values: nmu_rep[133],The
-#> following variables have undefined values: nmu_rep[134],The following
-#> variables have undefined values: nmu_rep[135],The following variables have
-#> undefined values: nmu_rep[136],The following variables have undefined values:
-#> nmu_rep[137],The following variables have undefined values: nmu_rep[138],The
-#> following variables have undefined values: nmu_rep[139],The following
-#> variables have undefined values: nmu_rep[140],The following variables have
-#> undefined values: nmu_rep[141],The following variables have undefined values:
-#> nmu_rep[142],The following variables have undefined values: nmu_rep[143],The
-#> following variables have undefined values: nmu_rep[144],The following
-#> variables have undefined values: nmu_rep[145],The following variables have
-#> undefined values: nmu_rep[146],The following variables have undefined values:
-#> nmu_rep[147],The following variables have undefined values: nmu_rep[148],The
-#> following variables have undefined values: nmu_rep[149],The following
-#> variables have undefined values: nmu_rep[150],The following variables have
-#> undefined values: nmu_rep[151],The following variables have undefined values:
-#> nmu_rep[152],The following variables have undefined values: nmu_rep[153],The
-#> following variables have undefined values: nmu_rep[154],The following
-#> variables have undefined values: nmu_rep[155],The following variables have
-#> undefined values: nmu_rep[156],The following variables have undefined values:
-#> nmu_rep[157],The following variables have undefined values: nmu_rep[158],The
-#> following variables have undefined values: nmu_rep[159],The following
-#> variables have undefined values: nmu_rep[160],The following variables have
-#> undefined values: nmu_rep[161],The following variables have undefined values:
-#> nmu_rep[162],The following variables have undefined values: nmu_rep[163],The
-#> following variables have undefined values: nmu_rep[164],The following
-#> variables have undefined values: nmu_rep[165],The following variables have
-#> undefined values: nmu_rep[166],The following variables have undefined values:
-#> nmu_rep[167],The following variables have undefined values: nmu_rep[168],The
-#> following variables have undefined values: nmu_rep[169],The following
-#> variables have undefined values: nmu_rep[170],The following variables have
-#> undefined values: nmu_rep[171],The following variables have undefined values:
-#> nmu_rep[172],The following variables have undefined values: nmu_rep[173],The
-#> following variables have undefined values: nmu_rep[174],The following
-#> variables have undefined values: nmu_rep[175],The following variables have
-#> undefined values: nmu_rep[176],The following variables have undefined values:
-#> nmu_rep[177],The following variables have undefined values: nmu_rep[178],The
-#> following variables have undefined values: nmu_rep[179],The following
-#> variables have undefined values: nmu_rep[180],The following variables have
-#> undefined values: nmu_rep[181],The following variables have undefined values:
-#> nmu_rep[182],The following variables have undefined values: nmu_rep[183],The
-#> following variables have undefined values: nmu_rep[184],The following
-#> variables have undefined values: nmu_rep[185],The following variables have
-#> undefined values: nmu_rep[186],The following variables have undefined values:
-#> nmu_rep[187],The following variables have undefined values: nmu_rep[188],The
-#> following variables have undefined values: nmu_rep[189],The following
-#> variables have undefined values: nmu_rep[190],The following variables have
-#> undefined values: nmu_rep[191],The following variables have undefined values:
-#> nmu_rep[192],The following variables have undefined values: nmu_rep[193],The
-#> following variables have undefined values: nmu_rep[194],The following
-#> variables have undefined values: nmu_rep[195],The following variables have
-#> undefined values: nmu_rep[196],The following variables have undefined values:
-#> nmu_rep[197],The following variables have undefined values: nmu_rep[198],The
-#> following variables have undefined values: nmu_rep[199],The following
-#> variables have undefined values: nmu_rep[200],The following variables have
-#> undefined values: nmu_rep[201],The following variables have undefined values:
-#> nmu_rep[202],The following variables have undefined values: nmu_rep[203],The
-#> following variables have undefined values: nmu_rep[204],The following
-#> variables have undefined values: nmu_rep[205],The following variables have
-#> undefined values: nmu_rep[206],The following variables have undefined values:
-#> nmu_rep[207],The following variables have undefined values: nmu_rep[208],The
-#> following variables have undefined values: nmu_rep[209],The following
-#> variables have undefined values: nmu_rep[210],The following variables have
-#> undefined values: nmu_rep[211],The following variables have undefined values:
-#> nmu_rep[212],The following variables have undefined values: nmu_rep[213],The
-#> following variables have undefined values: nmu_rep[214],The following
-#> variables have undefined values: nmu_rep[215],The following variables have
-#> undefined values: nmu_rep[216],The following variables have undefined values:
-#> nmu_rep[217],The following variables have undefined values: nmu_rep[218],The
-#> following variables have undefined values: nmu_rep[219],The following
-#> variables have undefined values: nmu_rep[220],The following variables have
-#> undefined values: nmu_rep[221],The following variables have undefined values:
-#> nmu_rep[222],The following variables have undefined values: nmu_rep[223],The
-#> following variables have undefined values: nmu_rep[224],The following
-#> variables have undefined values: nmu_rep[225],The following variables have
-#> undefined values: nmu_rep[226],The following variables have undefined values:
-#> nmu_rep[227],The following variables have undefined values: nmu_rep[228],The
-#> following variables have undefined values: nmu_rep[229],The following
-#> variables have undefined values: nmu_rep[230],The following variables have
-#> undefined values: nmu_rep[231],The following variables have undefined values:
-#> nmu_rep[232],The following variables have undefined values: nmu_rep[233],The
-#> following variables have undefined values: nmu_rep[234],The following
-#> variables have undefined values: nmu_rep[235],The following variables have
-#> undefined values: nmu_rep[236],The following variables have undefined values:
-#> nmu_rep[237],The following variables have undefined values: nmu_rep[238],The
-#> following variables have undefined values: nmu_rep[239],The following
-#> variables have undefined values: nmu_rep[240],The following variables have
-#> undefined values: nmu_rep[241],The following variables have undefined values:
-#> nmu_rep[242],The following variables have undefined values: nmu_rep[243],The
-#> following variables have undefined values: nmu_rep[244],The following
-#> variables have undefined values: nmu_rep[245],The following variables have
-#> undefined values: nmu_rep[246],The following variables have undefined values:
-#> nmu_rep[247],The following variables have undefined values: nmu_rep[248],The
-#> following variables have undefined values: nmu_rep[249],The following
-#> variables have undefined values: nmu_rep[250],The following variables have
-#> undefined values: nmu_rep[251],The following variables have undefined values:
-#> nmu_rep[252],The following variables have undefined values: nmu_rep[253],The
-#> following variables have undefined values: nmu_rep[254],The following
-#> variables have undefined values: nmu_rep[255],The following variables have
-#> undefined values: nmu_rep[256],The following variables have undefined values:
-#> nmr_rep[134],The following variables have undefined values: nmr_rep[135],The
-#> following variables have undefined values: nmr_rep[136],The following va
-#> Warning: There were 1 divergent transitions after warmup. See
-#> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
-#> to find out why this is a problem and how to eliminate them.
-#> Warning: Examine the pairs() plot to diagnose sampling problems
+#> Warning: The largest R-hat is 2.03, indicating chains have not mixed.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#r-hat
 #> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
 #> Running the chains for more iterations may help. See
 #> https://mc-stan.org/misc/warnings.html#bulk-ess
+#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#tail-ess
 ```
 
 Show the age-depth model (this is the same function as in the original
@@ -308,96 +281,46 @@ Show estimated and measured cumulative masses versus depth:
 # plot(fit_1, type = "cumulative_mass_profile")
 plot(
   fit_1, 
-  type = "cumulative_carbon_mass_profile", 
-  carbon_content = 
-    d |> 
-    dplyr::filter(!is.na(cumulative_mass)) |> 
-    dplyr::slice(-1) |> 
-    dplyr::pull(C)
+  type = "cumulative_mass_profile"
 )
-#> Warning in get_posterior_cumulative_carbon_mass(object = object, depth = depth, : *
-#> Cumulative carbon contents start at 0 for the first measured layer.
-#> Warning in get_posterior_cumulative_carbon_mass(object = object, depth = depth, : *
-#> Measured layers do not cover completely modeled layers (are not contiguous). This results
-#> in `NA` carbon contents. `NA` carbon contents are filled in order to compute cumulative
-#> carbon masses.
+#> Warning: Returning more (or less) than 1 row per `summarise()` group was deprecated in
+#> dplyr 1.1.0.
+#> ℹ Please use `reframe()` instead.
+#> ℹ When switching from `summarise()` to `reframe()`, remember that `reframe()`
+#>   always returns an ungrouped data frame and adjust accordingly.
+#> ℹ The deprecated feature was likely used in the peathamstr package.
+#>   Please report the issue at <https://github.com/henningte/peathamstr/issues>.
+#> This warning is displayed once every 8 hours.
+#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+#> generated.
 ```
 
 <img src="man/figures/README-example-6-1.png" width="60%" style="display: block; margin: auto;" />
 
-Plot a histogram of the estimate exponential decomposition rate:
+Plot a histogram of the estimate exponential decomposition rates for the
+acrotelm and catotelm and of the acrotelm-catotelm boundary age:
 
 ``` r
-as.data.frame(fit_1$fit, pars = "clymo_alpha") |>
-  ggplot(aes(x = clymo_alpha)) +
+as.data.frame(fit_1$fit, pars = c("clymo_alpha_1", "clymo_alpha_2", "ac_age")) |>
+  tidyr::pivot_longer(
+    cols = dplyr::everything(),
+    names_to = "variable",
+    values_to = "value"
+  ) |>
+  ggplot(aes(x = value)) +
   geom_histogram(bins = 30) +
-  labs(y = "Count", x = expression(alpha~"("*yr^{-1}*")"))
+  labs(y = "Count", x = expression(alpha~"("*yr^{-1}*") or age (yr)")) +
+  facet_wrap(~ variable, scales = "free_x")
 ```
 
-<img src="man/figures/README-example-7-1.png" width="60%" style="display: block; margin: auto;" />
-
-Plot net carbon uptake (NCU) and net carbon release (NCR). Gaps in
-default plots are due to incomplete coverage of modeled depth layers by
-measured depth layers:
-
-``` r
-p1 <- 
-  plot(
-  fit_1, 
-  type = "carbon_fluxes", 
-  carbon_content = 
-    d |> 
-    dplyr::filter(!is.na(cumulative_mass)) |> 
-    dplyr::slice(-1) |> 
-    dplyr::pull(C)
-) + 
-  facet_wrap(~ variable, ncol = 1L)
-
-p1
-```
-
-<img src="man/figures/README-example-8-1.png" width="60%" style="display: block; margin: auto;" />
-
-To add apparent carbon accumulation rates (aCAR), you can add:
-
-``` r
-d_acar <- 
-  predict(
-        object = fit_1, 
-        type = "apparent_carbon_accumulation_rates", 
-        depth = "data", 
-        carbon_content = d |> 
-          dplyr::filter(!is.na(cumulative_mass)) |> 
-          dplyr::slice(-1) |> 
-          dplyr::pull(C)
-      ) |>
-  dplyr::group_by(depth_lower) |>
-  dplyr::summarise(
-    mean = mean(acar, na.rm = TRUE),
-    `2.5%` = quantile(acar, probs = 0.025, na.rm = TRUE),
-    `97.5%` = quantile(acar, probs = 0.975, na.rm = TRUE),
-    age = mean(age_lower, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-p1 +
-  geom_ribbon(
-    data = d_acar, 
-    aes(x = age, ymin = `2.5%`, ymax = `97.5%`), 
-    color = NA, fill = "grey", alpha = 0.3
-  ) +
-  geom_path(data = d_acar, aes(x = age, y = mean))
-#> Warning: Removed 1 row(s) containing missing values (geom_path).
-```
-
-<img src="man/figures/README-example-9-1.png" width="60%" style="display: block; margin: auto;" />
+<img src="man/figures/README-example-7-1.png" width="100%" style="display: block; margin: auto;" />
 
 Plot for net mass uptake (NMU) and net mass release (NMR) can also be
 created:
 
 ``` r
 plot(fit_1, type = "mass_fluxes") + 
-  facet_wrap(~ variable, ncol = 1L)
+  facet_wrap(~ variable, ncol = 1L, scales = "free_y")
 ```
 
 <img src="man/figures/README-example-10-1.png" width="60%" style="display: block; margin: auto;" />
