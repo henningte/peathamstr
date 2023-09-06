@@ -44,6 +44,8 @@ This example shows how to estimate the decomposition rate, net carbon uptake (NC
 
 ```{r example-1}
 library(peathamstr)
+library(rstan)
+library(magrittr)
 library(pangaear) # to download example data
 library(ggplot2)
 ```
@@ -65,7 +67,7 @@ d <-
         depth_midpoint = round(depth_midpoint * 100, 1), # assumed
         thickness = 1, # assumed
         mass = bulk_density * thickness * 10000/1000,
-        cumulative_mass = c(0.00001, cumsum(mass)[-1])
+        cumulative_mass = c(cumsum(mass))
       ),
     d2[[1]]$data |>
       dplyr::select(2, 4, 5) |>
@@ -85,7 +87,7 @@ d <-
     by = "depth_midpoint"
   ) |>
   dplyr::arrange(depth_midpoint) |>
-  dplyr::filter(depth_midpoint <= max(depth_midpoint[!is.na(age)]) & depth_midpoint >= 44) |>
+  dplyr::filter(depth_midpoint <= max(depth_midpoint[!is.na(age)]) & depth_midpoint >= 0) |>
   dplyr::mutate(
     depth_upper = depth_midpoint - 0.5,
     depth_lower = depth_midpoint + 0.5
@@ -97,10 +99,108 @@ index <- c(which(!is.na(d$age)), which(is.na(d$age)) |> sample(size = 150, repla
 
 d <- 
   d |>
-  dplyr::slice(index) |>
+  dplyr::slice(index)#  |>
+  # dplyr::mutate(
+  #   depth_upper = c(depth_upper[[1]], depth_lower[-length(depth_lower)]) 
+  # )
+
+# new:
+d1 <- pangaear::pg_data(doi = '10.1594/PANGAEA.928183')
+d2 <- pangaear::pg_data(doi = '10.1594/PANGAEA.934722')
+
+d <- 
+  dplyr::full_join(
+    d1[[1]]$data |>
+      dplyr::select(1, 2, 3, 5) |>
+      setNames(nm = c("depth_midpoint", "thickness", "bulk_density", "C")) |>
+      dplyr::filter(!is.na(bulk_density)) |>
+      dplyr::mutate(
+        C = C/bulk_density,
+        depth_midpoint = round(depth_midpoint * 100, 1), # assumed
+        mass = bulk_density * thickness * 10000/1000,
+        cumulative_mass = c(cumsum(mass))
+      ),
+    d2[[1]]$data |>
+      dplyr::select(1, 3, 4) |>
+      setNames(nm = c("depth_midpoint", "age", "age_sd")) |>
+      dplyr::filter(!is.na(age)) |>
+      dplyr::mutate(
+        depth_midpoint = round(depth_midpoint * 100, 1),
+        age = age * 1000,
+        age_sd = age_sd * 1000
+      ) |>
+      hamstr::calibrate_14C_age(age.14C = "age", age.14C.se = "age_sd", cal_curve = "intcal20") %>%
+      dplyr::mutate(
+         age.14C.cal.se = 
+          purrr::map_dbl(seq_len(nrow(.)), function(i) {
+            if(! is.na(age[[i]]) & is.na(age.14C.cal[[i]])) {
+              Bchron::BchronCalibrate(age[[i]], ageSds = age_sd[[i]], allowOutside = T)$Date1$ageSds
+            } else {
+              age.14C.cal.se[[i]]
+            }
+          }),
+        age.14C.cal = 
+          purrr::map_dbl(seq_len(nrow(.)), function(i) {
+            if(! is.na(age[[i]]) & is.na(age.14C.cal[[i]])) {
+              Bchron::BchronCalibrate(age[[i]], ageSds = age_sd[[i]], allowOutside = T)$Date1$ages + (2003 - 1950)
+            } else {
+              age.14C.cal[[i]]
+            }
+          })
+      ) |>
+      dplyr::select(-age, -age_sd) |>
+      dplyr::rename(
+        age = "age.14C.cal",
+        age_sd = "age.14C.cal.se"
+      ),
+    by = "depth_midpoint"
+  ) |>
+  dplyr::arrange(depth_midpoint) |>
+  dplyr::filter(depth_midpoint <= max(depth_midpoint[!is.na(age)]) & depth_midpoint >= 0) |>
   dplyr::mutate(
-    depth_upper = c(depth_upper[[1]], depth_lower[-length(depth_lower)]) 
+    depth_upper = depth_midpoint - 0.5,
+    depth_lower = depth_midpoint + 0.5
   )
+
+target_depths <- 
+  tibble::tibble(
+    sample_depth_upper = c(seq(min(d$depth_upper), 60, by = 2), seq(60, max(d$depth_lower), by = 20)),
+    sample_depth_lower = c(sample_depth_upper[-1], max(d$depth_lower)) 
+  )
+
+a <- 
+  dplyr::bind_rows(
+    d |>
+      dplyr::filter(!is.na(age)),
+    d |>
+      dplyr::filter(is.na(age)) %>%
+      dplyr::mutate(
+        index_target_depth =
+          purrr::map_int(seq_len(nrow(.)), function(i) {
+            index <- depth_lower[[i]] <= target_depths$sample_depth_lower & depth_upper[[i]] >= target_depths$sample_depth_upper
+            if(sum(index) == 0) {
+              NA_integer_
+            } else {
+              which(index)[[1]]
+            }
+          })
+      ) |>
+      dplyr::group_by(index_target_depth) |>
+      dplyr::summarise(
+        dplyr::across(!dplyr::all_of(c("depth_upper", "depth_lower", "depth_midpoint", "cumulative_mass", "mass", "thickness")), mean),
+        depth_upper = min(depth_upper),
+        depth_lower = max(depth_lower),
+        mass = sum(mass),
+        cumulative_mass = max(cumulative_mass),
+        .groups = "drop"
+      )
+  ) |>
+  dplyr::mutate(
+    thickness = depth_lower - depth_upper,
+    depth_midpoint = depth_upper + (thickness) * 0.5
+  ) |>
+  dplyr::select(-index_target_depth) |>
+  dplyr::arrange(depth_upper)
 ```
 
 Show the cumulative mass-age curve (here using only point age values and cumulative masses for dated layers). It is clearly visible that the core violates the assumptions of the original Bog Growth Model (see also @Yu.2003 for a detailed description of the peatland).
@@ -120,6 +220,7 @@ Estimate the posterior distribution (computes the age-depth model and fits the m
 ```{r example-4, cache=TRUE}
 fit_1 <- 
   peat_hamstr(
+    K = c(3, 3, 3),
     depth = 
       d |> 
       dplyr::filter(!is.na(age)) |> 
@@ -132,28 +233,44 @@ fit_1 <-
       d |> 
       dplyr::filter(!is.na(age)) |> 
       dplyr::pull(age_sd),
-    cumulative_mass = 
+    layer_mass = 
       d |> 
-      dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
+      dplyr::filter(is.na(age)) |>
+      dplyr::filter(!is.na(mass)) |> 
       dplyr::pull(cumulative_mass),
-    cumulative_mass0 = d$cumulative_mass[[1]],
-    depth2 =
-      d |> 
-      dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
-      dplyr::pull(depth_midpoint),
+    cumulative_mass0 = d$cumulative_mass[[1]] - d$mass[[1]],
+    # depth2 =
+      # d |> 
+      # dplyr::filter(!is.na(cumulative_mass)) |> 
+      # dplyr::pull(depth_midpoint),
+    depth_clymo_par_constant = 100,
     depth2_upper =
       d |> 
+      dplyr::filter(is.na(age)) |>
       dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
       dplyr::pull(depth_upper),
     depth2_lower =
       d |> 
+      dplyr::filter(is.na(age)) |>
       dplyr::filter(!is.na(cumulative_mass)) |> 
-      dplyr::slice(-1) |> 
       dplyr::pull(depth_lower),
     min_age = 0,
+    top_depth = 0,
+    bottom_depth = max(d$depth_lower),
+    p1_clymo_par = 8,
+    p2_clymo_par = 8/0.2,
+    p3_clymo_par = 1/20,
+    clymo_par_memory_p1 = 2,
+    clymo_par_memory_p2 = 2,
+    p1_clymo_alpha_1 = 10, 
+    p2_clymo_alpha_1 = 10/0.04, 
+    p3_clymo_alpha_1 = 1/100,
+    p1_age0 = 20,
+    p2_age0 = 20/0.2,
+    p3_age0 = 1/20,
+    p1_ac_age = 20,
+    p2_ac_age = 20/200,
+    p3_ac_age = 40,
     # the seed argument for the sampler is set here so that
     # this example always returns the same numerical result
     stan_sampler_args = 
@@ -162,7 +279,7 @@ fit_1 <-
         chains = 4, 
         iter = 4000, 
         cores = 4, 
-        control = list(max_treedepth = 12)
+        control = list(max_treedepth = 15)
       )
   )
 ```
@@ -193,11 +310,17 @@ plot(
 
 Plot a histogram of the estimate exponential decomposition rate:
 
-```{r example-7, out.width="60%", fig.align='center'}
-as.data.frame(fit_1$fit, pars = "clymo_alpha") |>
-  ggplot(aes(x = clymo_alpha)) +
+```{r example-7, out.width="100%", fig.align='center', fig.width=5, fig.height=2.5}
+as.data.frame(fit_1$fit, pars = c("clymo_alpha_1", "clymo_alpha_2", "ac_age")) |>
+  tidyr::pivot_longer(
+    cols = dplyr::everything(),
+    names_to = "variable",
+    values_to = "value"
+  ) |>
+  ggplot(aes(x = value)) +
   geom_histogram(bins = 30) +
-  labs(y = "Count", x = expression(alpha~"("*yr^{-1}*")"))
+  labs(y = "Count", x = expression(alpha~"("*yr^{-1}*")")) +
+  facet_wrap(~ variable, scales = "free_x")
 ```
 
 
